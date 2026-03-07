@@ -1,0 +1,25 @@
+{
+  "steam_path": "C:\\Program Files (x86)\\Steam\\steam.exe",
+  "steam_start_args": "-silent",
+  "auto_scan": true,
+  "theme": {
+    "background": "#14141c",
+    "cursor": "#4682c8",
+    "text": "#dcdce6",
+    "title": "#a0a0b4",
+    "font_size_title": 42,
+    "font_size_list": 28,
+    "font_bold_title": false,
+    "font_bold_list": false,
+    "background_image": ""
+  },
+  "fullscreen_args": {
+    "steam": "-fullscreen",
+    "epic": "-fullscreen"
+  },
+  "steam_skip_restore_ids": [
+    1151340,
+    230410
+  ],
+  "games": []
+}
