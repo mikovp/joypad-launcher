@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE
+        run: |
+          python -m PyInstaller --onefile --windowed --name JoypadLauncher --hidden-import scan_libraries --add-data "config.example.json;." --clean launcher.py
+
+      - name: Create ZIP package
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zipName = "JoypadLauncher-${tag}-windows-x64.zip"
+          Copy-Item config.example.json dist/
+          Copy-Item bg.jpg dist/
+          Compress-Archive -Path dist/JoypadLauncher.exe, dist/config.example.json, dist/bg.jpg -DestinationPath $zipName
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: JoypadLauncher-${{ github.ref_name }}-windows-x64.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
