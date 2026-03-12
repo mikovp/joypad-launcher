@@ -6,6 +6,7 @@ Launches games in fullscreen mode.
 """
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -630,6 +631,53 @@ def run_launcher():
     title_surface = font_title.render("Select a game or action (gamepad or keyboard)", True, title_color)
     hint_surface = font_title.render("A / Enter / Start — launch   B / Esc — system menu   ↑/↓ or stick — select", True, title_color)
 
+    def show_launching_overlay(_game_name=None):
+        """Blurred overlay with rotating dots: large→small gradient, smooth fade."""
+        saved = screen.copy()
+        blur_scale = 5
+        dim_alpha = 140
+        dot_count = 12
+        r_max, r_min = 7, 1  # head largest → tail smallest (stronger gradient)
+        orbit_radius = 26
+        frames = 36
+        frame_delay = 0.1
+        dim_color = tuple(max(0, min(255, int(c * 0.2))) for c in text_color)
+        for i in range(frames):
+            # Blur + dark overlay
+            small = pygame.transform.smoothscale(saved, (max(1, w // blur_scale), max(1, h // blur_scale)))
+            blurred = pygame.transform.smoothscale(small, (w, h))
+            screen.blit(blurred, (0, 0))
+            dim = pygame.Surface((w, h))
+            dim.set_alpha(dim_alpha)
+            dim.fill((0, 0, 0))
+            screen.blit(dim, (0, 0))
+            # Smooth phase for head position (0..dot_count)
+            phase = (i / max(1, frames - 1)) * dot_count
+            cx, cy = w // 2, h // 2
+            for j in range(dot_count):
+                # Distance from head along the trail (0 = head, 1, 2... = tail)
+                raw = (phase - j) % dot_count
+                dist = raw if raw <= dot_count / 2 else dot_count - raw
+                if raw > dot_count / 2:
+                    dist = 999  # ahead of head: fully dim (use long arc)
+                # Size gradient: head largest, tail smallest (smooth over ~6 dots)
+                t = min(1.0, dist / 6.0)
+                radius = max(r_min, r_max - t * (r_max - r_min))
+                # Smoother brightness: quadratic falloff for gentle on/off
+                t_soft = t * t  # quadratic = smoother fade
+                brightness = max(0.0, 1.0 - t_soft * 1.1)  # 1.0 at head → 0 at tail
+                color = tuple(
+                    max(0, min(255, int(dim_color[c] + (text_color[c] - dim_color[c]) * brightness)))
+                    for c in range(3)
+                )
+                angle = math.radians(j * (360 / dot_count) - 90)
+                x = cx + orbit_radius * math.cos(angle)
+                y = cy + orbit_radius * math.sin(angle)
+                pygame.draw.circle(screen, color, (int(x), int(y)), max(1, int(radius)))
+            pygame.display.flip()
+            pygame.event.pump()
+            time.sleep(frame_delay)
+
     while running:
         frames_since_rescan += 1
         if frames_since_rescan >= RESCAN_INTERVAL:
@@ -678,7 +726,10 @@ def run_launcher():
                     if event.key == pygame.K_DOWN:
                         selected = (selected + 1) % len(games)
                     if event.key == pygame.K_RETURN:
-                        result = try_launch_game(games[selected])
+                        g = games[selected]
+                        if g.get("platform") in ("steam", "epic"):
+                            show_launching_overlay(g.get("name", "Game"))
+                        result = try_launch_game(g)
                         if result is not None:
                             should_exit, axis_held_val = result
                             if should_exit:
@@ -706,7 +757,10 @@ def run_launcher():
                             running = False
                 else:
                     if event.button == BTN_A or event.button == BTN_START:
-                        result = try_launch_game(games[selected])
+                        g = games[selected]
+                        if g.get("platform") in ("steam", "epic"):
+                            show_launching_overlay(g.get("name", "Game"))
+                        result = try_launch_game(g)
                         if result is not None:
                             should_exit, axis_held_val = result
                             if should_exit:
