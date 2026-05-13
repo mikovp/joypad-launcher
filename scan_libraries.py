@@ -197,3 +197,36 @@ def scan_all(steam_exe_path=None):
     steam = scan_steam_games(steam_exe_path) if steam_exe_path else []
     epic = scan_epic_games()
     return steam + epic
+
+
+def scan_nsp_games(root_folder):
+    """
+    Recursively find *.nsp under root_folder (including UNC \\\\server\\share paths).
+    Returns entries with name, platform 'nsp', and full nsp_path.
+    Nested paths use display name 'Subfolder / Title' without the .nsp extension.
+    """
+    root_folder = os.path.normpath((root_folder or "").strip())
+    if not root_folder or not os.path.isdir(root_folder):
+        return []
+    games = []
+    for dirpath, _dirnames, filenames in os.walk(root_folder):
+        for fn in filenames:
+            if not fn.lower().endswith(".nsp"):
+                continue
+            full = os.path.join(dirpath, fn)
+            stem = os.path.splitext(fn)[0]
+            try:
+                rel_dir = os.path.relpath(dirpath, root_folder)
+            except ValueError:
+                rel_dir = ""
+            if rel_dir and rel_dir != ".":
+                display = "%s / %s" % (rel_dir.replace(os.sep, " / "), stem)
+            else:
+                display = stem
+            games.append({
+                "name": display,
+                "platform": "nsp",
+                "nsp_path": full,
+            })
+    games.sort(key=lambda g: g["name"].lower())
+    return games

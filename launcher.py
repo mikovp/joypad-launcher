@@ -47,6 +47,58 @@ HIGHLIGHT_COLOR = (70, 130, 200)
 TITLE_COLOR = (160, 160, 180)
 
 
+def _hard_break_word(font, word, max_width):
+    """Split a single word into chunks if it is wider than max_width."""
+    if not word:
+        return [""]
+    lines = []
+    cur = ""
+    for ch in word:
+        trial = cur + ch
+        if font.size(trial)[0] <= max_width:
+            cur = trial
+        else:
+            if cur:
+                lines.append(cur)
+            cur = ch
+    if cur:
+        lines.append(cur)
+    return lines if lines else [word]
+
+
+def _wrap_words_to_width(font, text, max_width):
+    """Word-wrap text so each line fits within max_width pixels."""
+    if max_width < 16:
+        return [text] if text else [""]
+    raw = (text or "").strip()
+    if not raw:
+        return [""]
+    words = raw.split()
+    lines = []
+    cur = words[0]
+    if font.size(cur)[0] > max_width:
+        hb = _hard_break_word(font, cur, max_width)
+        lines.extend(hb[:-1])
+        cur = hb[-1] if hb else ""
+        words = words[1:]
+    else:
+        words = words[1:]
+    for word in words:
+        trial = cur + " " + word
+        if font.size(trial)[0] <= max_width:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = word
+            if font.size(cur)[0] > max_width:
+                hb = _hard_break_word(font, cur, max_width)
+                lines.extend(hb[:-1])
+                cur = hb[-1] if hb else ""
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def _parse_color(value, default):
     """Converts config value to (R, G, B) tuple.
     value: string #RRGGBB / #RGB or list [r,g,b] (0-255).
@@ -104,6 +156,27 @@ def _parse_font_bold(value, default=False):
     return default
 
 
+def _parse_font_scale(value, default=1.0):
+    """Positive font size multiplier from theme.font_scale."""
+    if value is None:
+        return default
+    try:
+        x = float(value)
+        return x if x > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_positive_float(value, default):
+    if value is None:
+        return default
+    try:
+        x = float(value)
+        return x if x > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
 def _theme_from_config(config):
     """Returns theme colors and sizes dict from config (theme.*)."""
     theme = config.get("theme") or {}
@@ -118,6 +191,34 @@ def _theme_from_config(config):
         "font_bold_list": _parse_font_bold(theme.get("font_bold_list"), False),
         "background_image": (theme.get("background_image") or "").strip() or None,
     }
+
+
+def _scale_theme_fonts_for_screen(theme, theme_section, screen_height):
+    """
+    Scale fonts up when display height is below the reference (e.g. 1280×960 / streaming).
+    Default: if height < auto_font_boost_ref_height (1080), multiply by ref/height, capped at auto_font_boost_max.
+    Then multiply by theme.font_scale for manual tuning.
+    """
+    if not theme_section:
+        theme_section = {}
+    t = theme["font_size_title"]
+    l = theme["font_size_list"]
+    auto = theme_section.get("auto_font_boost_low_res")
+    if auto is None:
+        auto = True
+    if auto and screen_height > 0:
+        ref = _parse_positive_float(theme_section.get("auto_font_boost_ref_height"), 1080.0)
+        boost_max = _parse_positive_float(theme_section.get("auto_font_boost_max"), 1.65)
+        if screen_height < ref:
+            factor = min(boost_max, ref / float(screen_height))
+            t = int(round(t * factor))
+            l = int(round(l * factor))
+    mult = _parse_font_scale(theme_section.get("font_scale"), 1.0)
+    if mult != 1.0:
+        t = int(round(t * mult))
+        l = int(round(l * mult))
+    theme["font_size_title"] = max(12, min(96, t))
+    theme["font_size_list"] = max(12, min(72, l))
 
 
 def load_config():
@@ -215,6 +316,115 @@ def launch_epic_game(exe_path, launch_args):
     args = [exe_path]
     if launch_args:
         args.extend(launch_args.split())
+    return subprocess.Popen(args, cwd=work_dir, shell=False, **_SUBPROCESS_KW)
+
+
+class _ShellExecuteProcess:
+    """Minimal process handle from ShellExecuteEx; supports poll()/pid for wait and focus."""
+
+    STILL_ACTIVE = 259
+
+    def __init__(self, h_process):
+        self._hp = h_process
+        self.pid = None
+        try:
+            from ctypes import windll
+
+            pid = windll.kernel32.GetProcessId(h_process)
+            self.pid = pid if pid else None
+        except Exception:
+            pass
+
+    def poll(self):
+        from ctypes import windll, byref
+        from ctypes.wintypes import DWORD
+
+        if not self._hp:
+            return 0
+        code = DWORD()
+        if not windll.kernel32.GetExitCodeProcess(self._hp, byref(code)):
+            windll.kernel32.CloseHandle(self._hp)
+            self._hp = None
+            return None
+        if code.value == self.STILL_ACTIVE:
+            return None
+        windll.kernel32.CloseHandle(self._hp)
+        self._hp = None
+        return code.value
+
+
+def _shell_execute_open_file(path):
+    """Windows: open file with its registered app (same as double-click)."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes, byref
+
+        SEE_MASK_NOCLOSEPROCESS = 0x00000040
+
+        class SHELLEXECUTEINFOW(ctypes.Structure):
+            _fields_ = (
+                ("cbSize", ctypes.c_uint32),
+                ("fMask", ctypes.c_uint32),
+                ("hwnd", wintypes.HWND),
+                ("lpVerb", wintypes.LPCWSTR),
+                ("lpFile", wintypes.LPCWSTR),
+                ("lpParameters", wintypes.LPCWSTR),
+                ("lpDirectory", wintypes.LPCWSTR),
+                ("nShow", ctypes.c_int),
+                ("hInstApp", wintypes.HINSTANCE),
+                ("lpIDList", ctypes.c_void_p),
+                ("lpClass", wintypes.LPCWSTR),
+                ("hKeyClass", wintypes.HANDLE),
+                ("dwHotKey", ctypes.c_uint32),
+                ("hIcon", wintypes.HANDLE),
+                ("hProcess", wintypes.HANDLE),
+            )
+
+        sei = SHELLEXECUTEINFOW()
+        sei.cbSize = ctypes.sizeof(SHELLEXECUTEINFOW)
+        sei.fMask = SEE_MASK_NOCLOSEPROCESS
+        sei.lpVerb = "open"
+        sei.lpFile = os.path.normpath(path)
+        sei.nShow = 1
+
+        if not ctypes.windll.shell32.ShellExecuteExW(byref(sei)):
+            return None
+        hp = sei.hProcess
+        try:
+            handle_val = ctypes.cast(hp, ctypes.c_void_p).value if hp else None
+        except Exception:
+            handle_val = None
+        if handle_val:
+            return _ShellExecuteProcess(hp)
+        return None
+    except Exception:
+        return None
+
+
+def launch_nsp_game(emulator_exe, nsp_path, launch_args, use_association=True):
+    """
+    Launch .nsp: on Windows with use_association, via file-type association (e.g. Ryujinx for .nsp);
+    otherwise or if the shell returns no process handle, run emulator_exe + ROM directly.
+    """
+    nsp_path = os.path.normpath(nsp_path)
+    if not os.path.isfile(nsp_path):
+        return None
+    if sys.platform == "win32" and use_association:
+        proc = _shell_execute_open_file(nsp_path)
+        if proc is not None:
+            return proc
+    emulator_exe = (emulator_exe or "").strip()
+    if not emulator_exe:
+        return None
+    emulator_exe = os.path.normpath(emulator_exe)
+    if not os.path.isfile(emulator_exe):
+        return None
+    work_dir = os.path.dirname(emulator_exe)
+    args = [emulator_exe, nsp_path]
+    if launch_args:
+        args.extend(str(launch_args).split())
     return subprocess.Popen(args, cwd=work_dir, shell=False, **_SUBPROCESS_KW)
 
 
@@ -480,6 +690,45 @@ def _try_launch_game(g, steam_path, default_args, steam_start_args, steam_skip_r
     return (False, 15)  # axis_held
 
 
+def build_categorized_game_list(games):
+    """
+    Build UI list entries: category headers and game rows.
+    Order: Steam → Epic Games → Nintendo Switch → Other (system and unknown platform).
+    Empty categories are omitted.
+    """
+    buckets = {"steam": [], "epic": [], "nsp": [], "_other": []}
+    for g in games:
+        p = (g.get("platform") or "").lower()
+        if p == "steam":
+            buckets["steam"].append(g)
+        elif p == "epic":
+            buckets["epic"].append(g)
+        elif p == "nsp":
+            buckets["nsp"].append(g)
+        else:
+            buckets["_other"].append(g)
+
+    sections = [
+        ("steam", "Steam"),
+        ("epic", "Epic Games"),
+        ("nsp", "Nintendo Switch"),
+    ]
+    items = []
+    for key, title in sections:
+        lst = buckets[key]
+        if not lst:
+            continue
+        items.append({"kind": "header", "title": title})
+        for game in lst:
+            items.append({"kind": "game", "game": game})
+    other = buckets["_other"]
+    if other:
+        items.append({"kind": "header", "title": "Other"})
+        for game in other:
+            items.append({"kind": "game", "game": game})
+    return items
+
+
 def run_launcher():
     config = load_config()
     if config.get("auto_scan"):
@@ -488,14 +737,30 @@ def run_launcher():
         if not steam_path:
             print("Steam not found. Specify steam_path in config.json (path to steam.exe).")
         games = scan_all(steam_path)
-        if not games:
-            print("Auto-scan found no games. Check: steam_path in config.json, steamapps folder, Epic Manifests.")
-            sys.exit(1)
     else:
         games = config.get("games", [])
+
+    nsp_roms_folder = (config.get("nsp_roms_folder") or "").strip()
+    if nsp_roms_folder:
+        from scan_libraries import scan_nsp_games
+        games = list(games) + scan_nsp_games(nsp_roms_folder)
+
     if not games:
-        print("No entries in 'games' in config.json and auto_scan is off. Add games or enable auto_scan.")
+        print(
+            "No games to show: Steam/Epic scan empty or disabled, config 'games' empty, "
+            "and nsp_roms_folder missing or contains no .nsp files."
+        )
         sys.exit(1)
+
+    list_items = build_categorized_game_list(games)
+    game_row_numbers = {}
+    section_game_index = 0
+    for _i, _it in enumerate(list_items):
+        if _it["kind"] == "header":
+            section_game_index = 0
+        else:
+            section_game_index += 1
+            game_row_numbers[_i] = section_game_index
 
     steam_path = get_steam_path(config)
     default_args = config.get("fullscreen_args", {})
@@ -510,8 +775,6 @@ def run_launcher():
     text_color = theme["text"]
     highlight_color = theme["cursor"]
     title_color = theme["title"]
-    font_size_title = theme["font_size_title"]
-    font_size_list = theme["font_size_list"]
     font_bold_title = theme["font_bold_title"]
     font_bold_list = theme["font_bold_list"]
     background_image_path = theme.get("background_image")
@@ -521,6 +784,9 @@ def run_launcher():
 
     info = pygame.display.Info()
     w, h = info.current_w, info.current_h
+    _scale_theme_fonts_for_screen(theme, config.get("theme") or {}, h)
+    font_size_title = theme["font_size_title"]
+    font_size_list = theme["font_size_list"]
     # Borderless fullscreen window (non-exclusive fullscreen — better for streaming/Sunshine)
     screen = pygame.display.set_mode((w, h), pygame.NOFRAME)
     pygame.display.set_caption("Joypad Launcher")
@@ -560,14 +826,111 @@ def run_launcher():
 
     font_title = pygame.font.SysFont("Segoe UI", font_size_title, bold=font_bold_title)
     font_list = pygame.font.SysFont("Segoe UI", font_size_list, bold=font_bold_list)
-    selected = 0
-    scroll_offset = 0
-    axis_held = 0  # pause between selection steps (lower = more responsive)
-    AXIS_REPEAT_FRAMES = 18  # ~0.3s at 60 FPS — pause between selection steps
+    font_category = pygame.font.SysFont("Segoe UI", font_size_list, bold=True)
+
     line_h = max(36, int(font_size_list * 2))
     list_start_y = 40 + font_size_title * 2
     list_bottom_margin = max(50, font_size_title + 24)
-    visible_count = max(1, (h - list_start_y - list_bottom_margin) // line_h)
+    list_line_skip = font_list.get_linesize() + 3
+    margin_right = 52
+    list_left = 80
+
+    def build_list_layout():
+        cat_skip = font_category.get_linesize() + 8
+        max_right = w - margin_right
+        cum_starts = []
+        specs = []
+        y_acc = 0
+        for idx, item in enumerate(list_items):
+            cum_starts.append(y_acc)
+            if item["kind"] == "header":
+                h_row = cat_skip
+                specs.append({"kind": "header", "height": h_row, "title": item["title"]})
+            else:
+                num = game_row_numbers[idx]
+                prefix = "    %d. " % num
+                pw = font_list.size(prefix)[0]
+                x_text = list_left + pw
+                usable = max(48, max_right - x_text)
+                name = item["game"].get("name", "Untitled")
+                name_lines = _wrap_words_to_width(font_list, name, usable)
+                h_row = max(list_line_skip, len(name_lines) * list_line_skip + 6)
+                specs.append({
+                    "kind": "game",
+                    "height": h_row,
+                    "prefix": prefix,
+                    "name_lines": name_lines,
+                    "x_text": x_text,
+                })
+            y_acc += h_row
+        total_h = y_acc
+        return cum_starts, specs, total_h
+
+    cum_starts, row_specs, list_content_height = build_list_layout()
+    viewport_h = max(60, h - list_start_y - list_bottom_margin)
+    max_scroll_y = max(0, list_content_height - viewport_h)
+    scroll_y = 0
+    list_snap_scroll_to_selection = True
+
+    def move_selection_by_viewport(delta_pages):
+        """Move highlight by roughly one screen (sum of game row heights), skipping category headers."""
+        nonlocal selected
+        if delta_pages == 0:
+            return
+        step_px = max(int(viewport_h * 0.85), list_line_skip * 4)
+        direction = 1 if delta_pages > 0 else -1
+        pixels_moved = 0
+        max_steps = len(list_items) + 2
+        for _ in range(max_steps):
+            if direction > 0:
+                nxt = None
+                for j in range(selected + 1, len(list_items)):
+                    if list_items[j]["kind"] == "game":
+                        nxt = j
+                        break
+                if nxt is None:
+                    break
+                pixels_moved += row_specs[nxt]["height"]
+                selected = nxt
+            else:
+                nxt = None
+                for j in range(selected - 1, -1, -1):
+                    if list_items[j]["kind"] == "game":
+                        nxt = j
+                        break
+                if nxt is None:
+                    break
+                pixels_moved += row_specs[nxt]["height"]
+                selected = nxt
+            if pixels_moved >= step_px:
+                break
+
+    def page_scroll(delta_pages):
+        nonlocal list_snap_scroll_to_selection
+        move_selection_by_viewport(delta_pages)
+        list_snap_scroll_to_selection = True
+
+    def _first_game_row_index():
+        for i, it in enumerate(list_items):
+            if it["kind"] == "game":
+                return i
+        return 0
+
+    def move_game_selection(delta):
+        """Move selection only across game rows (skip category headers)."""
+        nonlocal selected, list_snap_scroll_to_selection
+        n = len(list_items)
+        if n == 0:
+            return
+        for _ in range(n):
+            selected = (selected + delta) % n
+            if list_items[selected]["kind"] == "game":
+                list_snap_scroll_to_selection = True
+                return
+
+    selected = _first_game_row_index()
+    axis_held = 0  # pause between selection steps (lower = more responsive)
+    AXIS_REPEAT_FRAMES = 18  # ~0.3s at 60 FPS — pause between selection steps
 
     # System submenu (B / Esc)
     system_menu_items = [
@@ -581,6 +944,8 @@ def run_launcher():
 
     clock = pygame.time.Clock()
     running = True
+    trig_page_arm_lt = True
+    trig_page_arm_rt = True
 
     def try_launch_game(g):
         """Launches game g. Returns (exit_launcher, axis_held) or None on skip."""
@@ -604,6 +969,27 @@ def run_launcher():
                 return None
             args = g.get("launch_args") or default_args.get("epic", "-fullscreen")
             process = launch_epic_game(exe, args)
+        elif platform == "nsp":
+            nsp_path = g.get("nsp_path")
+            if not nsp_path or not os.path.isfile(nsp_path):
+                return None
+            assoc_cfg = config.get("nsp_use_windows_association")
+            if assoc_cfg is None:
+                use_association = sys.platform == "win32"
+            else:
+                use_association = bool(assoc_cfg)
+            emu = (config.get("nsp_emulator_path") or "").strip()
+            args = g.get("launch_args")
+            if args is None:
+                extra = (default_args.get("nsp") or config.get("nsp_launch_args") or "").strip()
+            else:
+                extra = (args or "").strip()
+            process = launch_nsp_game(emu, nsp_path, extra, use_association=use_association)
+            if process is None and not in_system_menu:
+                print(
+                    "NSP: launch failed. On Windows set .nsp to open with your emulator (e.g. Ryujinx), "
+                    "or set a valid nsp_emulator_path in config.json."
+                )
         elif platform == "system":
             action = g.get("system_action")
             if action:
@@ -612,11 +998,15 @@ def run_launcher():
             return None
         else:
             return None
+        if not process:
+            return None
         _yield_for_game_window(2.0)
         if process and platform == "epic":
             _bring_game_to_foreground(process, 12)
         elif process and platform == "steam":
             _bring_game_to_foreground(process, 20)
+        elif process and platform == "nsp":
+            _bring_game_to_foreground(process, 12)
         elif process:
             _bring_process_window_to_foreground(process.pid)
             _yield_for_game_window(0.5)
@@ -629,7 +1019,11 @@ def run_launcher():
 
     # Cache static text surfaces (unchanged each frame)
     title_surface = font_title.render("Select a game or action (gamepad or keyboard)", True, title_color)
-    hint_surface = font_title.render("A / Enter / Start — launch   B / Esc — system menu   ↑/↓ or stick — select", True, title_color)
+    hint_surface = font_title.render(
+        "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
+        True,
+        title_color,
+    )
 
     def show_launching_overlay(_game_name=None):
         """Blurred overlay with rotating dots: large→small gradient, smooth fade."""
@@ -722,12 +1116,19 @@ def run_launcher():
                         in_system_menu = True
                         system_menu_index = 0
                     if event.key == pygame.K_UP:
-                        selected = (selected - 1) % len(games)
+                        move_game_selection(-1)
                     if event.key == pygame.K_DOWN:
-                        selected = (selected + 1) % len(games)
+                        move_game_selection(1)
+                    if event.key == pygame.K_PAGEUP:
+                        page_scroll(-1)
+                    if event.key == pygame.K_PAGEDOWN:
+                        page_scroll(1)
                     if event.key == pygame.K_RETURN:
-                        g = games[selected]
-                        if g.get("platform") in ("steam", "epic"):
+                        it = list_items[selected]
+                        if it["kind"] != "game":
+                            continue
+                        g = it["game"]
+                        if g.get("platform") in ("steam", "epic", "nsp"):
                             show_launching_overlay(g.get("name", "Game"))
                         result = try_launch_game(g)
                         if result is not None:
@@ -757,8 +1158,11 @@ def run_launcher():
                             running = False
                 else:
                     if event.button == BTN_A or event.button == BTN_START:
-                        g = games[selected]
-                        if g.get("platform") in ("steam", "epic"):
+                        it = list_items[selected]
+                        if it["kind"] != "game":
+                            continue
+                        g = it["game"]
+                        if g.get("platform") in ("steam", "epic", "nsp"):
                             show_launching_overlay(g.get("name", "Game"))
                         result = try_launch_game(g)
                         if result is not None:
@@ -771,6 +1175,10 @@ def run_launcher():
                         # Open system submenu
                         in_system_menu = True
                         system_menu_index = 0
+                    elif event.button == BTN_LB:
+                        page_scroll(-1)
+                    elif event.button == BTN_RB:
+                        page_scroll(1)
 
             if event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_Y:
                 if axis_held <= 0:
@@ -784,11 +1192,28 @@ def run_launcher():
                             axis_held = AXIS_REPEAT_FRAMES
                     else:
                         if event.value < -DEADZONE:
-                            selected = (selected - 1) % len(games)
+                            move_game_selection(-1)
                             axis_held = AXIS_REPEAT_FRAMES
                         elif event.value > DEADZONE:
-                            selected = (selected + 1) % len(games)
+                            move_game_selection(1)
                             axis_held = AXIS_REPEAT_FRAMES
+            elif event.type == pygame.JOYAXISMOTION:
+                # LT (axis 4) / RT (axis 5): page up/down on many Xbox-style pads (L2/R2 triggers)
+                if not in_system_menu and axis_held <= 0:
+                    if event.axis == 5 and event.value > 0.72:
+                        if trig_page_arm_rt:
+                            page_scroll(1)
+                            trig_page_arm_rt = False
+                            axis_held = AXIS_REPEAT_FRAMES * 2
+                    elif event.axis == 5 and event.value < 0.2:
+                        trig_page_arm_rt = True
+                    if event.axis == 4 and event.value > 0.72:
+                        if trig_page_arm_lt:
+                            page_scroll(-1)
+                            trig_page_arm_lt = False
+                            axis_held = AXIS_REPEAT_FRAMES * 2
+                    elif event.axis == 4 and event.value < 0.2:
+                        trig_page_arm_lt = True
             if event.type == pygame.JOYHATMOTION and event.hat == 0:
                 if axis_held <= 0:
                     if in_system_menu:
@@ -801,10 +1226,10 @@ def run_launcher():
                             axis_held = AXIS_REPEAT_FRAMES
                     else:
                         if event.value[1] > 0:
-                            selected = (selected - 1) % len(games)
+                            move_game_selection(-1)
                             axis_held = AXIS_REPEAT_FRAMES
                         elif event.value[1] < 0:
-                            selected = (selected + 1) % len(games)
+                            move_game_selection(1)
                             axis_held = AXIS_REPEAT_FRAMES
 
         if axis_held > 0:
@@ -814,18 +1239,22 @@ def run_launcher():
         if not in_system_menu and joysticks and axis_held <= 0:
             y = joysticks[0].get_axis(AXIS_LEFT_Y)
             if y < -DEADZONE:
-                selected = (selected - 1) % len(games)
+                move_game_selection(-1)
                 axis_held = AXIS_REPEAT_FRAMES
             elif y > DEADZONE:
-                selected = (selected + 1) % len(games)
+                move_game_selection(1)
                 axis_held = AXIS_REPEAT_FRAMES
 
-        # Scroll: keep selected item in visible area
-        if selected < scroll_offset:
-            scroll_offset = selected
-        elif selected >= scroll_offset + visible_count:
-            scroll_offset = selected - visible_count + 1
-        scroll_offset = max(0, min(scroll_offset, len(games) - visible_count))
+        # Keep selected row on screen only when navigating with ↑↓ / stick (page scroll must not snap back).
+        if list_snap_scroll_to_selection:
+            sel_top = cum_starts[selected]
+            sel_h = row_specs[selected]["height"]
+            sel_bot = sel_top + sel_h
+            if sel_top < scroll_y:
+                scroll_y = sel_top
+            elif sel_bot > scroll_y + viewport_h:
+                scroll_y = sel_bot - viewport_h
+        scroll_y = max(0, min(scroll_y, max_scroll_y))
 
         # Rendering
         if bg_surface:
@@ -835,24 +1264,39 @@ def run_launcher():
         screen.blit(title_surface, (60, 40))
         screen.blit(hint_surface, (60, h - list_bottom_margin))
 
-        # Game list
-        for idx in range(scroll_offset, min(scroll_offset + visible_count, len(games))):
-            g = games[idx]
-            name = g.get("name", "Untitled")
-            platform = g.get("platform", "?")
-            color = highlight_color if idx == selected else text_color
-            text = font_list.render(f"  {idx + 1}. {name}  [{platform}]", True, color)
-            row_y = list_start_y + (idx - scroll_offset) * line_h
-            screen.blit(text, (80, row_y))
+        # Category list with wrapped titles and pixel-based scrolling
+        prev_clip = screen.get_clip()
+        screen.set_clip(pygame.Rect(0, list_start_y, w, viewport_h))
+        try:
+            for idx in range(len(list_items)):
+                y_content = cum_starts[idx]
+                rh = row_specs[idx]["height"]
+                screen_y = list_start_y + y_content - scroll_y
+                if screen_y + rh < list_start_y or screen_y > list_start_y + viewport_h:
+                    continue
+                spec = row_specs[idx]
+                if spec["kind"] == "header":
+                    text = font_category.render("  %s" % spec["title"], True, title_color)
+                    screen.blit(text, (60, screen_y))
+                else:
+                    color = highlight_color if idx == selected else text_color
+                    screen.blit(font_list.render(spec["prefix"], True, color), (list_left, screen_y))
+                    ly = screen_y
+                    for li, chunk in enumerate(spec["name_lines"]):
+                        surf = font_list.render(chunk, True, color)
+                        screen.blit(surf, (spec["x_text"], ly))
+                        ly += list_line_skip
+        finally:
+            screen.set_clip(prev_clip)
 
-        # Scroll indicator: arrows when list does not fit
-        if len(games) > visible_count:
-            if scroll_offset > 0:
+        # Scroll hint arrows
+        if max_scroll_y > 0:
+            if scroll_y > 0:
                 up_arrow = font_list.render(" ▲", True, title_color)
-                screen.blit(up_arrow, (w - 50, list_start_y))
-            if scroll_offset + visible_count < len(games):
+                screen.blit(up_arrow, (w - 50, list_start_y + 4))
+            if scroll_y < max_scroll_y:
                 down_arrow = font_list.render(" ▼", True, title_color)
-                screen.blit(down_arrow, (w - 50, list_start_y + (visible_count - 1) * line_h))
+                screen.blit(down_arrow, (w - 50, list_start_y + viewport_h - font_list.get_linesize() - 4))
 
         # System submenu over list
         if in_system_menu:

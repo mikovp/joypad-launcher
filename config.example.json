@@ -7,15 +7,24 @@
     "cursor": "#4682c8",
     "text": "#dcdce6",
     "title": "#a0a0b4",
-    "font_size_title": 42,
-    "font_size_list": 28,
+    "font_size_title": 46,
+    "font_size_list": 32,
     "font_bold_title": false,
     "font_bold_list": false,
-    "background_image": ""
+    "background_image": "",
+    "auto_font_boost_low_res": true,
+    "auto_font_boost_ref_height": 1080,
+    "auto_font_boost_max": 1.65,
+    "font_scale": 1
   },
+  "nsp_roms_folder": "\\\\ws.lan\\share\\NS_Roms",
+  "nsp_use_windows_association": true,
+  "nsp_emulator_path": "C:\\Program Files\\Ryujinx\\Ryujinx.exe",
+  "nsp_launch_args": "",
   "fullscreen_args": {
     "steam": "-fullscreen",
-    "epic": "-fullscreen"
+    "epic": "-fullscreen",
+    "nsp": ""
   },
   "steam_skip_restore_ids": [
     1151340,
