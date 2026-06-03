@@ -95,8 +95,32 @@ EDITOR_NAV_ORDER = [
     ("stick_click", "right", "R-stick click"),
 ] + _face_nav_entries() + [
     ("mouse_sens", None, "Mouse speed"),
+    ("mouse_scale", None, "Mouse scale"),
     ("deadzone", None, "Deadzone"),
 ]
+
+NUMERIC_SLOT_KINDS = ("mouse_sens", "mouse_scale", "deadzone")
+NUMERIC_SLOT_STEPS = {
+    "mouse_sens": ("mouse_sensitivity", 0.1, 0.1, 50.0),
+    "mouse_scale": ("mouse_scale", 0.1, 0.1, 10.0),
+    "deadzone": ("deadzone", 0.01, 0.0, 1.0),
+}
+
+
+def _round_numeric(kind, value):
+    if kind == "deadzone":
+        return round(float(value), 2)
+    return round(float(value), 1)
+
+
+def _adjust_numeric_slot(profile, slot, direction):
+    kind = slot["kind"]
+    if kind not in NUMERIC_SLOT_STEPS:
+        return slot["value"]
+    _, step, min_v, max_v = NUMERIC_SLOT_STEPS[kind]
+    new_v = _round_numeric(kind, float(slot["value"]) + direction * step)
+    new_v = max(min_v, min(max_v, new_v))
+    return new_v
 
 
 def build_editor_slots(profile):
@@ -128,6 +152,8 @@ def build_editor_slots(profile):
             return dpad.get(key, "none")
         if kind == "mouse_sens":
             return profile["mouse_sensitivity"]
+        if kind == "mouse_scale":
+            return profile["mouse_scale"]
         if kind == "deadzone":
             return profile["deadzone"]
         return "none"
@@ -166,6 +192,8 @@ def _apply_slot_value(profile, slot, value):
         profile.setdefault("dpad", {})[slot["key"]] = value
     elif slot["kind"] == "mouse_sens":
         profile["mouse_sensitivity"] = value
+    elif slot["kind"] == "mouse_scale":
+        profile["mouse_scale"] = value
     elif slot["kind"] == "deadzone":
         profile["deadzone"] = value
 
@@ -177,18 +205,6 @@ def _cycle_slot(profile, slot):
         return cycle_stick_mode(cur)
     if kind == "right_stick":
         return cycle_right_stick_mode(cur)
-    if kind == "mouse_sens":
-        opts = [6.0, 8.0, 10.0, 12.0, 16.0, 20.0, 28.0]
-        for i, v in enumerate(opts):
-            if abs(v - float(cur)) < 0.01:
-                return opts[(i + 1) % len(opts)]
-        return opts[2]
-    if kind == "deadzone":
-        opts = [0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
-        for i, v in enumerate(opts):
-            if abs(v - float(cur)) < 0.01:
-                return opts[(i + 1) % len(opts)]
-        return opts[2]
     return cycle_binding(cur)
 
 
@@ -313,7 +329,9 @@ def _slot_display(slot):
     if kind in ("left_stick", "right_stick"):
         return _stick_label(val)
     if kind == "mouse_sens":
-        return "%.0f" % float(val)
+        return "%.1f" % float(val)
+    if kind == "mouse_scale":
+        return "%.1f" % float(val)
     if kind == "deadzone":
         return "%.2f" % float(val)
     return binding_label(val)
@@ -513,7 +531,7 @@ class InputRemapSession:
         [5, 6, 7, 8],
         [12, 13],
         list(range(14, 26)),
-        [26, 27],
+        [26, 27, 28],
     )
 
     def _editor_h_group(self, slot_index):
@@ -653,13 +671,22 @@ class InputRemapSession:
 
     def _cycle_current_slot(self):
         slot = self.slots[self.slot_index]
-        new_val = _cycle_slot(self.profile, slot)
+        if slot["kind"] in NUMERIC_SLOT_KINDS:
+            new_val = _adjust_numeric_slot(self.profile, slot, 1)
+        else:
+            new_val = _cycle_slot(self.profile, slot)
         slot["value"] = new_val
         _apply_slot_value(self.profile, slot, new_val)
         save_profile(self.profile_path, self.profile)
 
     def _reset_slot(self):
         slot = self.slots[self.slot_index]
+        if slot["kind"] in NUMERIC_SLOT_KINDS:
+            new_val = _adjust_numeric_slot(self.profile, slot, -1)
+            slot["value"] = new_val
+            _apply_slot_value(self.profile, slot, new_val)
+            save_profile(self.profile_path, self.profile)
+            return
         if slot["kind"] in ("left_stick", "right_stick", "trigger", "button", "dpad", "chord", "stick_click"):
             new_val = "none"
             slot["value"] = new_val
@@ -765,7 +792,7 @@ class InputRemapSession:
         game_name = (self.current_game or {}).get("name") or "Game"
         self._draw_header(
             "Controller mapping: %s" % game_name,
-            "↑↓ element   ←→ group   LT/RT FACE scroll   A change   X clear   B back",
+            "↑↓ element   ←→ group   LT/RT FACE scroll   A +/change   X −/clear   B back",
             w,
         )
         areas = self._editor_areas(w, h)
@@ -990,11 +1017,15 @@ class InputRemapSession:
         settings_y = areas["settings_y"]
         pygame.draw.line(self.screen, OUTLINE_COLOR, (x0, settings_y - 6), (x0 + w, settings_y - 6), 1)
         ms = _slot_index(self.slots, "mouse_sens")
+        msc = _slot_index(self.slots, "mouse_scale")
         dz = _slot_index(self.slots, "deadzone")
+        setting_w = w // 3 - 24
         if ms is not None:
-            self._draw_grid_row(x0 + 12, settings_y, w // 2 - 24, line_h, "Mouse speed", ms)
+            self._draw_grid_row(x0 + 12, settings_y, setting_w, line_h, "Mouse speed", ms)
+        if msc is not None:
+            self._draw_grid_row(x0 + w // 3 + 12, settings_y, setting_w, line_h, "Mouse scale", msc)
         if dz is not None:
-            self._draw_grid_row(x0 + w // 2 + 12, settings_y, w // 2 - 24, line_h, "Deadzone", dz)
+            self._draw_grid_row(x0 + 2 * w // 3 + 12, settings_y, setting_w, line_h, "Deadzone", dz)
 
     def _draw_grid_row(self, x, y, w, h, label, slot_i, badge_color=None):
         slot = self.slots[slot_i]
@@ -1030,8 +1061,8 @@ class InputRemapSession:
 
     def _draw_editor_footer(self, w, y):
         hints = [
-            ("A", "Select", (107, 191, 89)),
-            ("X", "Clear", (191, 176, 77)),
+            ("A", "Select / +", (107, 191, 89)),
+            ("X", "Clear / −", (191, 176, 77)),
             ("B", "Back", (191, 77, 77)),
         ]
         parts = []
