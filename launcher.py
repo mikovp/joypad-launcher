@@ -253,6 +253,7 @@ def save_config(data):
 
 
 _FONT_SCALE_OPTIONS = [1.0, 1.08, 1.15, 1.25, 1.35, 1.5]
+_TILE_SCALE_OPTIONS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5]
 _DDCCI_DELAY_OPTIONS = [1000, 2000, 3000, 5000]
 _FONT_SIZE_TITLE_OPTIONS = [42, 46, 52, 58, 64]
 _FONT_SIZE_LIST_OPTIONS = [28, 32, 38, 44, 50]
@@ -312,6 +313,7 @@ def build_settings_menu(config):
     theme = config.get("theme") or {}
     delay = int(ddcci.get("delay_ms", 2000))
     scale = float(theme.get("font_scale", 1.0) or 1.0)
+    tile_scale = _parse_tile_scale(theme.get("tile_scale"), 2.0)
     title_sz = int(theme.get("font_size_title") or 42)
     list_sz = int(theme.get("font_size_list") or 28)
     hint_sz = theme.get("font_size_hint")
@@ -324,6 +326,7 @@ def build_settings_menu(config):
         ]),
         ("Appearance", [
             ("ui_mode", "View: %s" % _ui_mode_label(_ui_mode_from_theme(theme))),
+            ("tile_scale", "Tile scale: %.2f" % tile_scale),
             ("background", "Background: %s" % _on_off(_background_enabled(config))),
             ("font_scale", "Font scale: %.2f" % scale),
             ("font_size_title", "Title size: %d" % title_sz),
@@ -363,6 +366,10 @@ def apply_setting_toggle(config, key):
     elif key == "ui_mode":
         theme = config.setdefault("theme", {})
         theme["ui_mode"] = "tiles" if _ui_mode_from_theme(theme) == "list" else "list"
+    elif key == "tile_scale":
+        theme = config.setdefault("theme", {})
+        cur = _parse_tile_scale(theme.get("tile_scale"), 2.0)
+        theme["tile_scale"] = _cycle_option(cur, _TILE_SCALE_OPTIONS)
     elif key == "background":
         theme = config.setdefault("theme", {})
         if _background_enabled(config):
@@ -944,28 +951,31 @@ def _ui_mode_label(mode):
     return "Tiles" if mode == "tiles" else "List"
 
 
-def compute_tile_grid(screen_w, screen_h, hint_line_h, hero_min=80, hero_max=280):
+def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, hero_min=80, hero_max=280):
     """
     Square tile grid: N tiles per row, rows stacked below (scroll vertically).
+    tile_scale enlarges tiles (fewer per row); set in theme.tile_scale or Settings.
     """
+    scale = _parse_tile_scale(tile_scale, 1.0)
     side_margin = max(24, screen_w // 40)
-    gap = max(8, min(14, screen_w // 120))
+    gap = max(8, min(18, int(14 * scale)))
     top_banner = 36 + hint_line_h * 2
     bottom_hint = max(44, hint_line_h + 24)
     label_h = max(28, hint_line_h + 8)
-    label_under = hint_line_h + 4
-    hero_h = max(hero_min, min(hero_max, int(screen_h * 0.2)))
+    hero_h = max(hero_min, min(int(hero_max * scale), int(screen_h * 0.24)))
     grid_top = top_banner + hero_h + gap
     grid_h = max(120, screen_h - grid_top - bottom_hint)
     usable_w = screen_w - 2 * side_margin
 
-    min_tile = 88
-    max_tile = 200
-    cols = max(3, (usable_w + gap) // (min_tile + gap))
+    target_tile = int(88 * scale)
+    target_tile = min(target_tile, usable_w // 2, max(96, int(grid_h * 0.42)))
+    cols = max(2, (usable_w + gap) // (target_tile + gap))
     tile_size = (usable_w - gap * (cols - 1)) // cols
-    while tile_size < min_tile and cols > 2:
+    min_tile = int(72 * scale)
+    while tile_size < int(target_tile * 0.92) and cols > 2:
         cols -= 1
         tile_size = (usable_w - gap * (cols - 1)) // cols
+    max_tile = min(usable_w // 2, int(grid_h * 0.48), int(220 * scale))
     tile_size = max(min_tile, min(max_tile, tile_size))
     grid_content_w = cols * tile_size + gap * max(0, cols - 1)
     grid_offset_x = side_margin + max(0, (usable_w - grid_content_w) // 2)
@@ -984,7 +994,18 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, hero_min=80, hero_max=280
         "top_banner": top_banner,
         "bottom_hint": bottom_hint,
         "section_header_h": label_h,
+        "tile_scale": scale,
     }
+
+
+def _parse_tile_scale(value, default=1.0):
+    if value is None:
+        return default
+    try:
+        x = float(value)
+        return max(0.5, min(3.0, x))
+    except (TypeError, ValueError):
+        return default
 
 
 def run_launcher():
@@ -1214,7 +1235,9 @@ def run_launcher():
     selected = _first_game_row_index()
     tile_pick = 0
     tile_scroll_y = 0
-    tile_geom = compute_tile_grid(w, h, hint_line_h)
+    _theme_for_tiles = config.get("theme") or {}
+    tile_scale = _parse_tile_scale(_theme_for_tiles.get("tile_scale"), 2.0)
+    tile_geom = compute_tile_grid(w, h, hint_line_h, tile_scale=tile_scale)
     tile_layout = []
     tile_all_games = []
     tile_content_h = 0
@@ -1240,8 +1263,10 @@ def run_launcher():
         return title, hint
 
     def rebuild_tile_geometry():
-        nonlocal tile_geom
-        tile_geom = compute_tile_grid(w, h, hint_line_h)
+        nonlocal tile_geom, tile_scale
+        _ts = _parse_tile_scale((config.get("theme") or {}).get("tile_scale"), 2.0)
+        tile_scale = _ts
+        tile_geom = compute_tile_grid(w, h, hint_line_h, tile_scale=tile_scale)
         rebuild_tile_layout()
 
     def tile_row_stride():
@@ -1641,9 +1666,11 @@ def run_launcher():
         nonlocal line_h, hint_line_h, list_start_y, list_bottom_margin, list_line_skip
         nonlocal title_surface, hint_surface, ui_mode
         nonlocal cum_starts, row_specs, list_content_height, viewport_h, max_scroll_y
-        nonlocal tile_geom
+        nonlocal tile_geom, tile_scale
         theme = _theme_from_config(config)
-        ui_mode = _ui_mode_from_theme(config.get("theme") or {})
+        theme_section = config.get("theme") or {}
+        ui_mode = _ui_mode_from_theme(theme_section)
+        tile_scale = _parse_tile_scale(theme_section.get("tile_scale"), 2.0)
         bg_color = theme["background"]
         text_color = theme["text"]
         highlight_color = theme["cursor"]
@@ -1679,6 +1706,7 @@ def run_launcher():
             bg_surface = _load_background_surface(background_image_path, w, h)
         elif key in (
             "ui_mode",
+            "tile_scale",
             "font_scale", "font_size_title", "font_size_list", "font_size_hint",
             "font_bold_title", "font_bold_list", "auto_font_boost",
         ):

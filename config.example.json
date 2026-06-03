@@ -17,6 +17,7 @@
     "auto_font_boost_max": 1.65,
     "font_scale": 1,
     "ui_mode": "list",
+    "tile_scale": 2.0,
     "covers_folder": "covers",
     "cdn_covers": true,
     "cdn_cache_folder": "cover_cdn_cache"
