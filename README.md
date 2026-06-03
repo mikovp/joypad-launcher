@@ -84,7 +84,14 @@ For streaming, you may want to change screen resolution before/after sessions. [
 
 **Download:** [QRes on SourceForge](https://sourceforge.net/projects/qres/) — place `QRes.exe` in the launcher folder (or add to PATH).
 
-Example: `cmd /C path\to\QRes.exe /x:1280 /y:960` — set 1280×768. In Sunshine, use such commands in **Do** (on start) and **Undo** (on exit).
+In Sunshine, use QRes in **Do** (on start) and **Undo** (on exit). Examples (adjust paths to your install folder):
+
+```text
+cmd /C C:\path\to\JoypadLauncher\QRes.exe /x:1280 /y:960
+cmd /C C:\path\to\JoypadLauncher\QRes.exe /x:3840 /y:1080 /r:144
+```
+
+The first sets 1280×960 for the streaming session; the second restores 3840×1080 at 144 Hz when the session ends.
 
 ## Sunshine (Moonlight streaming)
 
@@ -96,6 +103,21 @@ Add Joypad Launcher as an application in Sunshine:
 | Working Directory | `path\to\dist`                    |
 
 Use the exe path so Moonlight clients can launch it without Python.
+
+### Example: Do / Undo commands
+
+If the PC is on the lock screen (`logonui`), reconnect the session to the physical console before launching. Put this in **Do** (or run it before the launcher command):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy unrestricted -Command "if (tasklist | findstr -i logonui) { tsdiscon ((quser $env:USERNAME | select -Skip 1) -split '\s+')[2]; Start-Sleep 1; tscon ((quser $env:USERNAME | select -Skip 1) -split '\s+')[1] /dest:console; New-Item -Path '$env:TEMP\apollo_unlock.lock' -ItemType File -Force; exit 1; }"
+```
+
+Combine with QRes in **Do** / **Undo** as needed:
+
+| When   | Example command |
+|--------|-----------------|
+| **Do** | `cmd /C C:\path\to\JoypadLauncher\QRes.exe /x:1280 /y:960` |
+| **Undo** | `cmd /C C:\path\to\JoypadLauncher\QRes.exe /x:3840 /y:1080 /r:144` |
 
 ## Steam App ID
 

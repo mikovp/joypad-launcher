@@ -30,5 +30,10 @@
     1151340,
     230410
   ],
+  "ddcci": {
+    "power_off_on_start": false,
+    "delay_ms": 2000,
+    "log": false
+  },
   "games": []
 }

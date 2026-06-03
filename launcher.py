@@ -187,9 +187,13 @@ def _theme_from_config(config):
         "title": _parse_color(theme.get("title"), TITLE_COLOR),
         "font_size_title": _parse_font_size(theme.get("font_size_title") or theme.get("font_size_large"), 42, 12, 96),
         "font_size_list": _parse_font_size(theme.get("font_size_list") or theme.get("font_size_small"), 28, 12, 72),
+        "font_size_hint": (
+            None
+            if theme.get("font_size_hint") is None
+            else _parse_font_size(theme.get("font_size_hint"), 21, 8, 96)
+        ),
         "font_bold_title": _parse_font_bold(theme.get("font_bold_title"), False),
         "font_bold_list": _parse_font_bold(theme.get("font_bold_list"), False),
-        "background_image": (theme.get("background_image") or "").strip() or None,
     }
 
 
@@ -239,6 +243,186 @@ def load_config():
     if path == CONFIG_EXAMPLE and not os.path.exists(CONFIG_PATH):
         print("Using config.example.json. Copy to config.json and configure games.")
     return data
+
+
+def save_config(data):
+    """Writes config to config.json next to launcher/exe."""
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+_FONT_SCALE_OPTIONS = [1.0, 1.08, 1.15, 1.25, 1.35, 1.5]
+_DDCCI_DELAY_OPTIONS = [1000, 2000, 3000, 5000]
+_FONT_SIZE_TITLE_OPTIONS = [42, 46, 52, 58, 64]
+_FONT_SIZE_LIST_OPTIONS = [28, 32, 38, 44, 50]
+_FONT_SIZE_HINT_OPTIONS = [None, 21, 26, 32]
+
+
+def _cycle_option(current, options):
+    for i, val in enumerate(options):
+        if val is None and current is None:
+            return options[(i + 1) % len(options)]
+        if val == current or (isinstance(current, float) and isinstance(val, (int, float)) and abs(val - current) < 0.001):
+            return options[(i + 1) % len(options)]
+    return options[0]
+
+
+def _on_off(value):
+    return "On" if value else "Off"
+
+
+def _background_enabled(config):
+    theme = config.get("theme") or {}
+    val = theme.get("background_image")
+    if val is False:
+        return False
+    if isinstance(val, str) and val.strip():
+        return True
+    return os.path.isfile(os.path.join(_BASE_DIR, "bg.jpg"))
+
+
+def resolve_background_image(config):
+    """Background path relative to launcher folder, or None."""
+    theme = config.get("theme") or {}
+    val = theme.get("background_image")
+    if val is False:
+        return None
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    if val is not False and os.path.isfile(os.path.join(_BASE_DIR, "bg.jpg")):
+        return "bg.jpg"
+    return None
+
+
+def _steam_silent_on(config):
+    return "-silent" in (config.get("steam_start_args") or "")
+
+
+def _nsp_association_on(config):
+    val = config.get("nsp_use_windows_association")
+    if val is None:
+        return sys.platform == "win32"
+    return bool(val)
+
+
+def build_settings_menu(config):
+    """Settings menu rows with category headers (kind: header | setting | action)."""
+    ddcci = config.get("ddcci") or {}
+    theme = config.get("theme") or {}
+    delay = int(ddcci.get("delay_ms", 2000))
+    scale = float(theme.get("font_scale", 1.0) or 1.0)
+    title_sz = int(theme.get("font_size_title") or 42)
+    list_sz = int(theme.get("font_size_list") or 28)
+    hint_sz = theme.get("font_size_hint")
+    hint_label = "Auto" if hint_sz is None else str(int(hint_sz))
+    sections = [
+        ("Monitor", [
+            ("ddcci_power", "Off on start: %s" % _on_off(ddcci.get("power_off_on_start"))),
+            ("ddcci_delay", "Off delay: %d ms" % delay),
+            ("ddcci_log", "Debug log: %s" % _on_off(ddcci.get("log"))),
+        ]),
+        ("Appearance", [
+            ("background", "Background: %s" % _on_off(_background_enabled(config))),
+            ("font_scale", "Font scale: %.2f" % scale),
+            ("font_size_title", "Title size: %d" % title_sz),
+            ("font_size_list", "List size: %d" % list_sz),
+            ("font_size_hint", "Hint size: %s" % hint_label),
+            ("font_bold_title", "Bold title: %s" % _on_off(theme.get("font_bold_title"))),
+            ("font_bold_list", "Bold list: %s" % _on_off(theme.get("font_bold_list"))),
+            ("auto_font_boost", "Low-res boost: %s" % _on_off(theme.get("auto_font_boost_low_res", True))),
+        ]),
+        ("Games & launch", [
+            ("auto_scan", "Auto-scan: %s" % _on_off(config.get("auto_scan"))),
+            ("steam_silent", "Steam silent: %s" % _on_off(_steam_silent_on(config))),
+            ("nsp_association", "NSP via Windows: %s" % _on_off(_nsp_association_on(config))),
+        ]),
+    ]
+    items = []
+    for section_title, rows in sections:
+        items.append({"kind": "header", "title": section_title})
+        for key, label in rows:
+            items.append({"kind": "setting", "key": key, "label": label})
+    items.append({"kind": "action", "key": "back", "label": "Back"})
+    return items
+
+
+def apply_setting_toggle(config, key):
+    """Toggle/cycle a setting and save config. Returns True if changed."""
+    if key == "back":
+        return False
+    if key == "ddcci_power":
+        ddcci = config.setdefault("ddcci", {})
+        ddcci["power_off_on_start"] = not bool(ddcci.get("power_off_on_start"))
+    elif key == "ddcci_delay":
+        ddcci = config.setdefault("ddcci", {})
+        cur = int(ddcci.get("delay_ms", 2000))
+        ddcci["delay_ms"] = _cycle_option(cur, _DDCCI_DELAY_OPTIONS)
+    elif key == "background":
+        theme = config.setdefault("theme", {})
+        if _background_enabled(config):
+            theme["background_image"] = False
+        else:
+            theme["background_image"] = "bg.jpg"
+    elif key == "font_scale":
+        theme = config.setdefault("theme", {})
+        cur = float(theme.get("font_scale", 1.0) or 1.0)
+        theme["font_scale"] = _cycle_option(cur, _FONT_SCALE_OPTIONS)
+    elif key == "font_size_title":
+        theme = config.setdefault("theme", {})
+        cur = int(theme.get("font_size_title") or 42)
+        theme["font_size_title"] = _cycle_option(cur, _FONT_SIZE_TITLE_OPTIONS)
+    elif key == "font_size_list":
+        theme = config.setdefault("theme", {})
+        cur = int(theme.get("font_size_list") or 28)
+        theme["font_size_list"] = _cycle_option(cur, _FONT_SIZE_LIST_OPTIONS)
+    elif key == "font_size_hint":
+        theme = config.setdefault("theme", {})
+        cur = theme.get("font_size_hint")
+        if cur is not None:
+            cur = int(cur)
+        theme["font_size_hint"] = _cycle_option(cur, _FONT_SIZE_HINT_OPTIONS)
+    elif key == "font_bold_title":
+        theme = config.setdefault("theme", {})
+        theme["font_bold_title"] = not bool(theme.get("font_bold_title"))
+    elif key == "font_bold_list":
+        theme = config.setdefault("theme", {})
+        theme["font_bold_list"] = not bool(theme.get("font_bold_list"))
+    elif key == "auto_font_boost":
+        theme = config.setdefault("theme", {})
+        cur = theme.get("auto_font_boost_low_res")
+        if cur is None:
+            cur = True
+        theme["auto_font_boost_low_res"] = not bool(cur)
+    elif key == "auto_scan":
+        config["auto_scan"] = not bool(config.get("auto_scan"))
+    elif key == "steam_silent":
+        if _steam_silent_on(config):
+            config["steam_start_args"] = ""
+        else:
+            config["steam_start_args"] = "-silent"
+    elif key == "nsp_association":
+        config["nsp_use_windows_association"] = not _nsp_association_on(config)
+    elif key == "ddcci_log":
+        ddcci = config.setdefault("ddcci", {})
+        ddcci["log"] = not bool(ddcci.get("log"))
+    else:
+        return False
+    save_config(config)
+    return True
+
+
+def _load_background_surface(image_path, width, height):
+    if not image_path:
+        return None
+    img_path = image_path if os.path.isabs(image_path) else os.path.join(_BASE_DIR, image_path)
+    try:
+        if os.path.isfile(img_path):
+            img = pygame.image.load(img_path)
+            return pygame.transform.smoothscale(img, (width, height))
+    except Exception:
+        pass
+    return None
 
 
 def _get_steam_path_from_registry():
@@ -731,6 +915,8 @@ def build_categorized_game_list(games):
 
 def run_launcher():
     config = load_config()
+    from ddcci import apply_startup_from_config, schedule_delayed_power_off
+    apply_startup_from_config(config, _BASE_DIR)
     if config.get("auto_scan"):
         from scan_libraries import scan_all
         steam_path = get_steam_path(config)
@@ -777,7 +963,7 @@ def run_launcher():
     title_color = theme["title"]
     font_bold_title = theme["font_bold_title"]
     font_bold_list = theme["font_bold_list"]
-    background_image_path = theme.get("background_image")
+    background_image_path = resolve_background_image(config)
 
     pygame.init()
     pygame.joystick.init()
@@ -787,21 +973,17 @@ def run_launcher():
     _scale_theme_fonts_for_screen(theme, config.get("theme") or {}, h)
     font_size_title = theme["font_size_title"]
     font_size_list = theme["font_size_list"]
+    font_size_hint_cfg = theme.get("font_size_hint")
+    font_size_hint = (
+        font_size_hint_cfg if font_size_hint_cfg is not None else max(10, font_size_title // 2)
+    )
     # Borderless fullscreen window (non-exclusive fullscreen — better for streaming/Sunshine)
     screen = pygame.display.set_mode((w, h), pygame.NOFRAME)
     pygame.display.set_caption("Joypad Launcher")
     pygame.mouse.set_visible(False)
 
     # Background image (path relative to launcher folder or absolute)
-    bg_surface = None
-    if background_image_path:
-        img_path = background_image_path if os.path.isabs(background_image_path) else os.path.join(_BASE_DIR, background_image_path)
-        try:
-            if os.path.isfile(img_path):
-                img = pygame.image.load(img_path)
-                bg_surface = pygame.transform.smoothscale(img, (w, h))
-        except Exception:
-            pass
+    bg_surface = _load_background_surface(background_image_path, w, h)
     hwnd = pygame.display.get_wm_info().get("window") if sys.platform == "win32" else None
     if hwnd and sys.platform == "win32":
         try:
@@ -810,6 +992,8 @@ def run_launcher():
             windll.user32.SetWindowPos(hwnd, None, 0, 0, w, h, SWP_NOZORDER)
         except Exception:
             pass
+
+    schedule_delayed_power_off(config, _BASE_DIR)
 
     def rescan_joysticks():
         pygame.joystick.quit()
@@ -827,10 +1011,12 @@ def run_launcher():
     font_title = pygame.font.SysFont("Segoe UI", font_size_title, bold=font_bold_title)
     font_list = pygame.font.SysFont("Segoe UI", font_size_list, bold=font_bold_list)
     font_category = pygame.font.SysFont("Segoe UI", font_size_list, bold=True)
+    font_hint = pygame.font.SysFont("Segoe UI", font_size_hint, bold=font_bold_title)
 
     line_h = max(36, int(font_size_list * 2))
-    list_start_y = 40 + font_size_title * 2
-    list_bottom_margin = max(50, font_size_title + 24)
+    hint_line_h = font_hint.get_linesize()
+    list_start_y = 36 + hint_line_h * 2
+    list_bottom_margin = max(44, hint_line_h + 24)
     list_line_skip = font_list.get_linesize() + 3
     margin_right = 52
     list_left = 80
@@ -932,15 +1118,190 @@ def run_launcher():
     axis_held = 0  # pause between selection steps (lower = more responsive)
     AXIS_REPEAT_FRAMES = 18  # ~0.3s at 60 FPS — pause between selection steps
 
-    # System submenu (B / Esc)
+    # Overlay menus: None | "system" | "settings"  (B / Esc)
     system_menu_items = [
         {"key": "resume", "label": "Resume"},
+        {"key": "settings", "label": "Settings"},
         {"key": "exit", "label": "Exit launcher"},
         {"key": "shutdown", "label": "Shut down PC"},
         {"key": "reboot", "label": "Reboot PC"},
     ]
-    in_system_menu = False
-    system_menu_index = 0
+    settings_menu_items = []
+    settings_cum_starts = []
+    settings_row_specs = []
+    settings_content_h = 0
+    overlay_menu = None
+    overlay_index = 0
+    overlay_scroll_y = 0
+
+    def _settings_first_row():
+        for i, it in enumerate(settings_menu_items):
+            if it.get("kind") in ("setting", "action"):
+                return i
+        return 0
+
+    def rebuild_settings_layout():
+        nonlocal settings_menu_items, settings_cum_starts, settings_row_specs, settings_content_h
+        settings_menu_items = build_settings_menu(config)
+        cat_skip = font_category.get_linesize() + 8
+        setting_h = font_list.get_linesize() + 8
+        settings_cum_starts = []
+        settings_row_specs = []
+        y_acc = 0
+        for item in settings_menu_items:
+            settings_cum_starts.append(y_acc)
+            if item.get("kind") == "header":
+                h_row = cat_skip
+                settings_row_specs.append({"kind": "header", "height": h_row, "title": item["title"]})
+            else:
+                h_row = setting_h
+                settings_row_specs.append({"kind": "row", "height": h_row, "item": item})
+            y_acc += h_row
+        settings_content_h = y_acc
+
+    rebuild_settings_layout()
+
+    def overlay_items():
+        return settings_menu_items if overlay_menu == "settings" else system_menu_items
+
+    def _overlay_snap_scroll():
+        nonlocal overlay_scroll_y
+        if overlay_menu != "settings" or not settings_row_specs:
+            return
+        header_h = 48
+        max_menu_h = max(120, h - 80)
+        body_h = max_menu_h - header_h
+        max_scroll = max(0, settings_content_h - body_h)
+        sel_top = settings_cum_starts[overlay_index]
+        sel_h = settings_row_specs[overlay_index]["height"]
+        sel_bot = sel_top + sel_h
+        if sel_top < overlay_scroll_y:
+            overlay_scroll_y = sel_top
+        elif sel_bot > overlay_scroll_y + body_h:
+            overlay_scroll_y = sel_bot - body_h
+        overlay_scroll_y = max(0, min(overlay_scroll_y, max_scroll))
+
+    def overlay_move(delta):
+        nonlocal overlay_index, overlay_scroll_y
+        if overlay_menu == "settings":
+            n = len(settings_menu_items)
+            if n == 0:
+                return
+            for _ in range(n):
+                overlay_index = (overlay_index + delta) % n
+                if settings_menu_items[overlay_index].get("kind") in ("setting", "action"):
+                    break
+            _overlay_snap_scroll()
+            return
+        items = overlay_items()
+        overlay_index = (overlay_index + delta) % len(items)
+        menu_line_h = font_list.get_linesize() + 8
+        header_h = 48
+        max_menu_h = max(120, h - 80)
+        body_h = max_menu_h - header_h
+        max_scroll = max(0, len(items) * menu_line_h - body_h)
+        row_top = overlay_index * menu_line_h
+        row_bot = row_top + menu_line_h
+        if row_top < overlay_scroll_y:
+            overlay_scroll_y = row_top
+        elif row_bot > overlay_scroll_y + body_h:
+            overlay_scroll_y = min(max_scroll, row_bot - body_h)
+        overlay_scroll_y = max(0, min(overlay_scroll_y, max_scroll))
+
+    def reload_fonts_and_layout():
+        nonlocal theme, bg_color, text_color, highlight_color, title_color
+        nonlocal font_size_title, font_size_list, font_size_hint
+        nonlocal font_bold_title, font_bold_list
+        nonlocal font_title, font_list, font_category, font_hint
+        nonlocal line_h, hint_line_h, list_start_y, list_bottom_margin, list_line_skip
+        nonlocal title_surface, hint_surface
+        nonlocal cum_starts, row_specs, list_content_height, viewport_h, max_scroll_y
+        theme = _theme_from_config(config)
+        bg_color = theme["background"]
+        text_color = theme["text"]
+        highlight_color = theme["cursor"]
+        title_color = theme["title"]
+        font_bold_title = theme["font_bold_title"]
+        font_bold_list = theme["font_bold_list"]
+        _scale_theme_fonts_for_screen(theme, config.get("theme") or {}, h)
+        font_size_title = theme["font_size_title"]
+        font_size_list = theme["font_size_list"]
+        font_size_hint_cfg = theme.get("font_size_hint")
+        font_size_hint = (
+            font_size_hint_cfg if font_size_hint_cfg is not None else max(10, font_size_title // 2)
+        )
+        font_title = pygame.font.SysFont("Segoe UI", font_size_title, bold=font_bold_title)
+        font_list = pygame.font.SysFont("Segoe UI", font_size_list, bold=font_bold_list)
+        font_category = pygame.font.SysFont("Segoe UI", font_size_list, bold=True)
+        font_hint = pygame.font.SysFont("Segoe UI", font_size_hint, bold=font_bold_title)
+        line_h = max(36, int(font_size_list * 2))
+        hint_line_h = font_hint.get_linesize()
+        list_start_y = 36 + hint_line_h * 2
+        list_bottom_margin = max(44, hint_line_h + 24)
+        list_line_skip = font_list.get_linesize() + 3
+        title_surface = font_hint.render("Select a game or action (gamepad or keyboard)", True, title_color)
+        hint_surface = font_hint.render(
+            "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
+            True,
+            title_color,
+        )
+        cum_starts, row_specs, list_content_height = build_list_layout()
+        viewport_h = max(60, h - list_start_y - list_bottom_margin)
+        max_scroll_y = max(0, list_content_height - viewport_h)
+
+    def apply_setting_live(key):
+        nonlocal bg_surface, background_image_path, settings_menu_items, steam_start_args
+        if key == "background":
+            background_image_path = resolve_background_image(config)
+            bg_surface = _load_background_surface(background_image_path, w, h)
+        elif key in (
+            "font_scale", "font_size_title", "font_size_list", "font_size_hint",
+            "font_bold_title", "font_bold_list", "auto_font_boost",
+        ):
+            reload_fonts_and_layout()
+        elif key == "steam_silent":
+            steam_start_args = (config.get("steam_start_args") or "").strip() or None
+        rebuild_settings_layout()
+
+    def overlay_back():
+        nonlocal overlay_menu, overlay_index
+        if overlay_menu == "settings":
+            overlay_menu = "system"
+            overlay_index = 0
+        else:
+            overlay_menu = None
+            overlay_index = 0
+
+    def overlay_confirm():
+        nonlocal overlay_menu, overlay_index, overlay_scroll_y, running
+        if overlay_menu == "system":
+            item = system_menu_items[overlay_index]
+            key = item["key"]
+            if key == "resume":
+                overlay_menu = None
+                overlay_index = 0
+            elif key == "settings":
+                overlay_menu = "settings"
+                overlay_index = _settings_first_row()
+                overlay_scroll_y = 0
+                rebuild_settings_layout()
+            elif key == "exit":
+                running = False
+            elif key == "shutdown":
+                perform_system_action("shutdown")
+                running = False
+            elif key == "reboot":
+                perform_system_action("reboot")
+                running = False
+        elif overlay_menu == "settings":
+            item = settings_menu_items[overlay_index]
+            if item.get("kind") == "header":
+                return
+            key = item.get("key")
+            if key == "back":
+                overlay_back()
+            elif apply_setting_toggle(config, key):
+                apply_setting_live(key)
 
     clock = pygame.time.Clock()
     running = True
@@ -954,7 +1315,7 @@ def run_launcher():
         skip_restore = False
         if platform == "steam":
             if not steam_path:
-                if not in_system_menu:
+                if not overlay_menu:
                     print("Steam not found. Specify steam_path in config.json")
                 return None
             aid = g.get("steam_app_id")
@@ -985,7 +1346,7 @@ def run_launcher():
             else:
                 extra = (args or "").strip()
             process = launch_nsp_game(emu, nsp_path, extra, use_association=use_association)
-            if process is None and not in_system_menu:
+            if process is None and not overlay_menu:
                 print(
                     "NSP: launch failed. On Windows set .nsp to open with your emulator (e.g. Ryujinx), "
                     "or set a valid nsp_emulator_path in config.json."
@@ -1018,8 +1379,9 @@ def run_launcher():
         return (False, 15)
 
     # Cache static text surfaces (unchanged each frame)
-    title_surface = font_title.render("Select a game or action (gamepad or keyboard)", True, title_color)
-    hint_surface = font_title.render(
+    # Top banner and bottom hint share font_hint (same size as theme.font_size_hint / half-title default).
+    title_surface = font_hint.render("Select a game or action (gamepad or keyboard)", True, title_color)
+    hint_surface = font_hint.render(
         "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
         True,
         title_color,
@@ -1089,32 +1451,19 @@ def run_launcher():
             if event.type == getattr(pygame, "JOYDEVICEADDED", None):
                 joysticks = rescan_joysticks()
             if event.type == pygame.KEYDOWN:
-                if in_system_menu:
-                    # System submenu navigation
+                if overlay_menu:
                     if event.key == pygame.K_ESCAPE:
-                        # Close submenu without exiting launcher
-                        in_system_menu = False
+                        overlay_back()
                     if event.key == pygame.K_UP:
-                        system_menu_index = (system_menu_index - 1) % len(system_menu_items)
+                        overlay_move(-1)
                     if event.key == pygame.K_DOWN:
-                        system_menu_index = (system_menu_index + 1) % len(system_menu_items)
+                        overlay_move(1)
                     if event.key == pygame.K_RETURN:
-                        item = system_menu_items[system_menu_index]
-                        if item["key"] == "resume":
-                            in_system_menu = False
-                        elif item["key"] == "exit":
-                            running = False
-                        elif item["key"] == "shutdown":
-                            perform_system_action("shutdown")
-                            running = False
-                        elif item["key"] == "reboot":
-                            perform_system_action("reboot")
-                            running = False
+                        overlay_confirm()
                 else:
                     if event.key == pygame.K_ESCAPE:
-                        # Open system submenu
-                        in_system_menu = True
-                        system_menu_index = 0
+                        overlay_menu = "system"
+                        overlay_index = 0
                     if event.key == pygame.K_UP:
                         move_game_selection(-1)
                     if event.key == pygame.K_DOWN:
@@ -1139,23 +1488,11 @@ def run_launcher():
                             axis_held = axis_held_val
 
             if event.type == pygame.JOYBUTTONDOWN:
-                if in_system_menu:
-                    # Gamepad in system submenu
+                if overlay_menu:
                     if event.button == BTN_B or event.button == BTN_BACK:
-                        # Close submenu
-                        in_system_menu = False
+                        overlay_back()
                     if event.button == BTN_A or event.button == BTN_START:
-                        item = system_menu_items[system_menu_index]
-                        if item["key"] == "resume":
-                            in_system_menu = False
-                        elif item["key"] == "exit":
-                            running = False
-                        elif item["key"] == "shutdown":
-                            perform_system_action("shutdown")
-                            running = False
-                        elif item["key"] == "reboot":
-                            perform_system_action("reboot")
-                            running = False
+                        overlay_confirm()
                 else:
                     if event.button == BTN_A or event.button == BTN_START:
                         it = list_items[selected]
@@ -1172,9 +1509,8 @@ def run_launcher():
                                 break
                             axis_held = axis_held_val
                     if event.button == BTN_B or event.button == BTN_BACK:
-                        # Open system submenu
-                        in_system_menu = True
-                        system_menu_index = 0
+                        overlay_menu = "system"
+                        overlay_index = 0
                     elif event.button == BTN_LB:
                         page_scroll(-1)
                     elif event.button == BTN_RB:
@@ -1182,13 +1518,12 @@ def run_launcher():
 
             if event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_Y:
                 if axis_held <= 0:
-                    if in_system_menu:
-                        # System submenu navigation with stick
+                    if overlay_menu:
                         if event.value < -DEADZONE:
-                            system_menu_index = (system_menu_index - 1) % len(system_menu_items)
+                            overlay_move(-1)
                             axis_held = AXIS_REPEAT_FRAMES
                         elif event.value > DEADZONE:
-                            system_menu_index = (system_menu_index + 1) % len(system_menu_items)
+                            overlay_move(1)
                             axis_held = AXIS_REPEAT_FRAMES
                     else:
                         if event.value < -DEADZONE:
@@ -1198,8 +1533,7 @@ def run_launcher():
                             move_game_selection(1)
                             axis_held = AXIS_REPEAT_FRAMES
             elif event.type == pygame.JOYAXISMOTION:
-                # LT (axis 4) / RT (axis 5): page up/down on many Xbox-style pads (L2/R2 triggers)
-                if not in_system_menu and axis_held <= 0:
+                if not overlay_menu and axis_held <= 0:
                     if event.axis == 5 and event.value > 0.72:
                         if trig_page_arm_rt:
                             page_scroll(1)
@@ -1216,13 +1550,12 @@ def run_launcher():
                         trig_page_arm_lt = True
             if event.type == pygame.JOYHATMOTION and event.hat == 0:
                 if axis_held <= 0:
-                    if in_system_menu:
-                        # System submenu navigation with D-pad
+                    if overlay_menu:
                         if event.value[1] > 0:
-                            system_menu_index = (system_menu_index - 1) % len(system_menu_items)
+                            overlay_move(-1)
                             axis_held = AXIS_REPEAT_FRAMES
                         elif event.value[1] < 0:
-                            system_menu_index = (system_menu_index + 1) % len(system_menu_items)
+                            overlay_move(1)
                             axis_held = AXIS_REPEAT_FRAMES
                     else:
                         if event.value[1] > 0:
@@ -1235,8 +1568,7 @@ def run_launcher():
         if axis_held > 0:
             axis_held -= 1
 
-        # Smooth stick navigation only in main list (not in system menu)
-        if not in_system_menu and joysticks and axis_held <= 0:
+        if not overlay_menu and joysticks and axis_held <= 0:
             y = joysticks[0].get_axis(AXIS_LEFT_Y)
             if y < -DEADZONE:
                 move_game_selection(-1)
@@ -1298,36 +1630,88 @@ def run_launcher():
                 down_arrow = font_list.render(" ▼", True, title_color)
                 screen.blit(down_arrow, (w - 50, list_start_y + viewport_h - font_list.get_linesize() - 4))
 
-        # System submenu over list
-        if in_system_menu:
-            menu_width = min(w - 120, 600)
-            # Slightly more space at top for header
-            menu_height = len(system_menu_items) * line_h + 60
-            menu_x = (w - menu_width) // 2
-            # Slightly raise submenu above screen center
-            menu_y = (h - menu_height) // 2 - 20
+        if overlay_menu:
+            menu_width = min(w - 80, 860)
+            header_h = 48
+            max_menu_h = max(120, h - 80)
 
-            # Submenu background (fully opaque)
-            pygame.draw.rect(screen, (0, 0, 0), (menu_x, menu_y, menu_width, menu_height))
-            pygame.draw.rect(screen, title_color, (menu_x, menu_y, menu_width, menu_height), 2)
+            if overlay_menu == "settings":
+                content_h = settings_content_h
+                menu_height = min(content_h + header_h, max_menu_h)
+                body_h = menu_height - header_h
+                max_overlay_scroll = max(0, content_h - body_h)
+                overlay_scroll_y_clamped = max(0, min(overlay_scroll_y, max_overlay_scroll))
+                menu_x = (w - menu_width) // 2
+                menu_y = (h - menu_height) // 2 - 10
 
-            menu_title = font_title.render("System menu", True, title_color)
-            # Center header horizontally and raise within frame
-            title_x = menu_x + (menu_width - menu_title.get_width()) // 2
-            title_y = menu_y + 2
-            screen.blit(menu_title, (title_x, title_y))
+                pygame.draw.rect(screen, (0, 0, 0), (menu_x, menu_y, menu_width, menu_height))
+                pygame.draw.rect(screen, title_color, (menu_x, menu_y, menu_width, menu_height), 2)
 
-            # Spacing between system menu items as in main list
-            menu_line_h = line_h
+                menu_title = font_title.render("Settings", True, title_color)
+                title_x = menu_x + (menu_width - menu_title.get_width()) // 2
+                screen.blit(menu_title, (title_x, menu_y + 8))
 
-            for idx, item in enumerate(system_menu_items):
-                label = item["label"]
-                color = highlight_color if idx == system_menu_index else text_color
-                text = font_list.render(label, True, color)
-                # Shift items below header and center horizontally
-                row_y = menu_y + 70 + idx * menu_line_h
-                row_x = menu_x + (menu_width - text.get_width()) // 2
-                screen.blit(text, (row_x, row_y))
+                body_top = menu_y + header_h
+                prev_clip = screen.get_clip()
+                screen.set_clip(pygame.Rect(menu_x, body_top, menu_width, body_h))
+                try:
+                    for idx, spec in enumerate(settings_row_specs):
+                        y_content = settings_cum_starts[idx]
+                        rh = spec["height"]
+                        row_y = body_top + y_content - overlay_scroll_y_clamped
+                        if row_y + rh < body_top or row_y > body_top + body_h:
+                            continue
+                        if spec["kind"] == "header":
+                            text = font_category.render("  %s" % spec["title"], True, title_color)
+                            screen.blit(text, (menu_x + 20, row_y))
+                        else:
+                            item = spec["item"]
+                            color = highlight_color if idx == overlay_index else text_color
+                            text = font_list.render(item["label"], True, color)
+                            row_x = menu_x + max(20, (menu_width - text.get_width()) // 2)
+                            screen.blit(text, (row_x, row_y))
+                finally:
+                    screen.set_clip(prev_clip)
+            else:
+                items = overlay_items()
+                menu_line_h = font_list.get_linesize() + 8
+                content_h = len(items) * menu_line_h
+                menu_height = min(content_h + header_h, max_menu_h)
+                body_h = menu_height - header_h
+                max_overlay_scroll = max(0, content_h - body_h)
+                overlay_scroll_y_clamped = max(0, min(overlay_scroll_y, max_overlay_scroll))
+                menu_x = (w - menu_width) // 2
+                menu_y = (h - menu_height) // 2 - 10
+
+                pygame.draw.rect(screen, (0, 0, 0), (menu_x, menu_y, menu_width, menu_height))
+                pygame.draw.rect(screen, title_color, (menu_x, menu_y, menu_width, menu_height), 2)
+
+                menu_title = font_title.render("System menu", True, title_color)
+                title_x = menu_x + (menu_width - menu_title.get_width()) // 2
+                screen.blit(menu_title, (title_x, menu_y + 8))
+
+                body_top = menu_y + header_h
+                prev_clip = screen.get_clip()
+                screen.set_clip(pygame.Rect(menu_x, body_top, menu_width, body_h))
+                try:
+                    for idx, item in enumerate(items):
+                        color = highlight_color if idx == overlay_index else text_color
+                        text = font_list.render(item["label"], True, color)
+                        row_y = body_top + idx * menu_line_h - overlay_scroll_y_clamped
+                        if row_y + menu_line_h < body_top or row_y > body_top + body_h:
+                            continue
+                        row_x = menu_x + max(20, (menu_width - text.get_width()) // 2)
+                        screen.blit(text, (row_x, row_y))
+                finally:
+                    screen.set_clip(prev_clip)
+
+            if max_overlay_scroll > 0:
+                if overlay_scroll_y_clamped > 0:
+                    up_arrow = font_list.render(" ▲", True, title_color)
+                    screen.blit(up_arrow, (menu_x + menu_width - 36, body_top + 2))
+                if overlay_scroll_y_clamped < max_overlay_scroll:
+                    down_arrow = font_list.render(" ▼", True, title_color)
+                    screen.blit(down_arrow, (menu_x + menu_width - 36, body_top + body_h - font_list.get_linesize() - 2))
 
         pygame.display.flip()
         clock.tick(60)
