@@ -238,6 +238,40 @@ def format_profile_notation(profile):
     return out
 
 
+def _build_keyboard_bindings():
+    """Profile binding ids → Windows VK codes; labels for the editor cycle list."""
+    rows = [
+        ("space", 0x20, "Space"),
+        ("enter", 0x0D, "Enter"),
+        ("escape", 0x1B, "Esc"),
+        ("tab", 0x09, "Tab"),
+        ("backspace", 0x08, "Backspace"),
+        ("delete", 0x2E, "Delete"),
+        ("shift", 0x10, "Shift"),
+        ("ctrl", 0x11, "Ctrl"),
+        ("alt", 0x12, "Alt"),
+        ("arrow_up", 0x26, "↑"),
+        ("arrow_down", 0x28, "↓"),
+        ("arrow_left", 0x25, "←"),
+        ("arrow_right", 0x27, "→"),
+        ("home", 0x24, "Home"),
+        ("end", 0x23, "End"),
+        ("pageup", 0x21, "PgUp"),
+        ("pagedown", 0x22, "PgDn"),
+    ]
+    for i in range(1, 13):
+        rows.append(("f%d" % i, 0x70 + i - 1, "F%d" % i))
+    for ch in "abcdefghijklmnopqrstuvwxyz":
+        rows.append((ch, ord(ch.upper()), ch.upper()))
+    for ch in "0123456789":
+        rows.append((ch, ord(ch), ch))
+    vk = {bid: code for bid, code, _label in rows}
+    editor = [(bid, label) for bid, _code, label in rows]
+    return vk, editor
+
+
+VK, _KEYBOARD_BINDINGS = _build_keyboard_bindings()
+
 BUTTON_BINDINGS = [
     ("none", "—"),
     ("mouse_left", "LMB"),
@@ -245,74 +279,7 @@ BUTTON_BINDINGS = [
     ("mouse_middle", "MMB"),
     ("mouse_wheel_up", "Wheel ↑"),
     ("mouse_wheel_down", "Wheel ↓"),
-    ("space", "Space"),
-    ("enter", "Enter"),
-    ("escape", "Esc"),
-    ("tab", "Tab"),
-    ("shift", "Shift"),
-    ("ctrl", "Ctrl"),
-    ("alt", "Alt"),
-    ("w", "W"),
-    ("a", "A"),
-    ("s", "S"),
-    ("d", "D"),
-    ("e", "E"),
-    ("r", "R"),
-    ("f", "F"),
-    ("t", "T"),
-    ("q", "Q"),
-    ("g", "G"),
-    ("m", "M"),
-    ("i", "I"),
-    ("v", "V"),
-    ("z", "Z"),
-    ("c", "C"),
-    ("1", "1"),
-    ("2", "2"),
-    ("3", "3"),
-    ("4", "4"),
-    ("5", "5"),
-    ("6", "6"),
-    ("7", "7"),
-    ("8", "8"),
-    ("9", "9"),
-    ("0", "0"),
-]
-
-VK = {
-    "space": 0x20,
-    "enter": 0x0D,
-    "escape": 0x1B,
-    "tab": 0x09,
-    "shift": 0x10,
-    "ctrl": 0x11,
-    "alt": 0x12,
-    "w": 0x57,
-    "a": 0x41,
-    "s": 0x53,
-    "d": 0x44,
-    "e": 0x45,
-    "r": 0x52,
-    "f": 0x46,
-    "t": 0x54,
-    "q": 0x51,
-    "g": 0x47,
-    "m": 0x4D,
-    "i": 0x49,
-    "v": 0x56,
-    "z": 0x5A,
-    "c": 0x43,
-    "1": 0x31,
-    "2": 0x32,
-    "3": 0x33,
-    "4": 0x34,
-    "5": 0x35,
-    "6": 0x36,
-    "7": 0x37,
-    "8": 0x38,
-    "9": 0x39,
-    "0": 0x30,
-}
+] + _KEYBOARD_BINDINGS
 
 DPAD_BINDINGS = [
     ("dpad_up", "D-Up"),

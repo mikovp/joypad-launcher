@@ -21,6 +21,10 @@
     "start": "none"
   },
   "button_holds": {
+    "a": {
+      "hold": "u",
+      "hold_ms": 450
+    },
     "b": {
       "hold": "tab",
       "hold_ms": 450
