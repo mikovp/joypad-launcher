@@ -927,7 +927,6 @@ class InputRemapSession:
         list_bottom = y + areas["grid_rows_h"]
 
         self._snap_grid_scroll(areas)
-        max_scroll = self._grid_max_scroll(areas)
 
         columns = _grid_column_specs(self.slots)
         face_labels = {str(BTN_A): "A", str(BTN_B): "B", str(BTN_X): "X", str(BTN_Y): "Y"}
@@ -987,15 +986,6 @@ class InputRemapSession:
         face_clip = pygame.Rect(face_x, list_top, col_w, max(1, list_bottom - list_top))
         _, face_indices = columns[FACE_COL_INDEX]
         _draw_column(FACE_COL_INDEX, face_indices, scroll_offset=self.scroll, clip=face_clip)
-
-        if max_scroll > 0:
-            arrow_x = face_x + col_w - 22
-            if self.scroll > 0:
-                up = self.font_hint.render("▲", True, self.title)
-                self.screen.blit(up, (arrow_x, list_top + 2))
-            if self.scroll < max_scroll - 1:
-                down = self.font_hint.render("▼", True, self.title)
-                self.screen.blit(down, (arrow_x, list_bottom - down.get_height() - 2))
 
         settings_y = areas["settings_y"]
         pygame.draw.line(self.screen, OUTLINE_COLOR, (x0, settings_y - 6), (x0 + w, settings_y - 6), 1)
