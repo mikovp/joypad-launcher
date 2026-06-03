@@ -69,11 +69,13 @@ def main():
             print(f"  libraryfolders.vdf exists: {os.path.isfile(lf)}")
 
     # Scanning
-    from scan_libraries import scan_steam_games, scan_epic_games, scan_all
+    from scan_libraries import scan_steam_games, scan_epic_games, scan_twitch_app, scan_all
     steam_games = scan_steam_games(steam_path) if steam_path else []
     epic_games = scan_epic_games()
+    twitch_games = scan_twitch_app()
     print(f"\nSteam games found: {len(steam_games)}")
     print(f"Epic games found: {len(epic_games)}")
+    print(f"Twitch app found: {len(twitch_games)}")
     if steam_games:
         print("  Steam examples:", [g["name"] for g in steam_games[:5]])
     if epic_games:

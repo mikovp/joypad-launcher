@@ -36,11 +36,15 @@ Set `"auto_scan": true` in `config.json` to auto-detect Steam and Epic games.
 
 ## Controls
 
-| Action       | Gamepad                    | Keyboard        |
-|-------------|----------------------------|-----------------|
-| Select game | Left stick / D-pad up/down | Arrow keys      |
-| Launch      | A or Start                 | Enter           |
-| System menu | B or Back                  | Esc             |
+| Action       | Gamepad (list)             | Gamepad (tiles)              | Keyboard        |
+|-------------|----------------------------|------------------------------|-----------------|
+| Select game | Stick / D-pad ↑↓           | Stick / D-pad ↑↓←→           | Arrows          |
+| Libraries   | —                          | LB / RB (Steam, Epic, …)     | —               |
+| Scroll page | LT / RT, LB / RB           | LT / RT                      | PgUp / PgDn     |
+| Launch      | A or Start                 | A or Start                   | Enter           |
+| System menu | B or Back                  | B or Back                    | Esc             |
+
+Switch **List** / **Tiles** in Settings → Appearance → **View**.
 
 ## Configuration
 
@@ -69,6 +73,28 @@ In `theme` you can set colors (`#RRGGBB`), font sizes, and `background_image`:
 | `font_size_title`    | Title font size (default 42)    |
 | `font_size_list`     | List font size (default 28)     |
 | `background_image`   | Custom background image path   |
+| `ui_mode`            | `list` or `tiles` (also in Settings) |
+| `covers_folder`      | Folder for custom covers (default `covers`) |
+| `cdn_covers`         | Download missing art to disk cache (default on) |
+| `cdn_cache_folder`   | CDN cache directory (default `cover_cdn_cache`) |
+
+### Tile view and covers
+
+With `ui_mode: "tiles"`, games appear as **square tiles** in a grid (several per row, rows below). **Steam**, **Epic Games**, and **Nintendo Switch** blocks are shown one after another on the same scrollable page. The selected game shows a large cover on top.
+
+Cover lookup order:
+
+1. **Your files** — `covers/` (e.g. `220.jpg`, game name).
+2. **Steam library cache** — `steam/appcache/librarycache/`.
+3. **Free CDN cache** (`cdn_covers` on) — downloads once into `cover_cdn_cache/`, **no API key**:
+   - **Steam** — Steam CDN by app id.
+   - **Epic / other** — Epic manifest image (if any); Libretro + Steam search + Wikipedia by game name.
+   - **Switch (.nsp)** — by **`.nsp` filename**: cover from **Title ID** in the name (`[01004A001E32E000]` → tinfoil.media), then Libretro, Steam search (with `S.T.A.L.K.E.R.` style aliases), Wikipedia.
+4. **Placeholder** — colored tile with platform label.
+
+Optional `rawg_api_key` in config adds one more fallback via [RAWG](https://rawg.io/apidocs) (registration required).
+
+Toggle **CDN covers** in Settings → Appearance. First launch may show placeholders briefly; art fills in as downloads finish.
 
 ## Build EXE
 

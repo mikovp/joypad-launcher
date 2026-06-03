@@ -13,15 +13,28 @@ try:
 except ImportError:
     vdf = None
 
-# Standard Epic path (single source — expandvars and ProgramData point to same place)
+# Epic manifest folders (ProgramData + per-user copy)
 _programdata = os.environ.get("ProgramData", "C:\\ProgramData")
-EPIC_MANIFESTS_DIRS = [
+_localappdata = os.environ.get("LOCALAPPDATA", "")
+EPIC_MANIFESTS_DIRS = []
+for _epic_base in (
     os.path.join(_programdata, "Epic", "EpicGamesLauncher", "Data", "Manifests"),
-]
+    os.path.join(_localappdata, "EpicGamesLauncher", "Data", "Manifests"),
+):
+    if _epic_base and _epic_base not in EPIC_MANIFESTS_DIRS:
+        EPIC_MANIFESTS_DIRS.append(_epic_base)
 
 # Cache: regex and skip types (VDF parser called for each manifest)
 _VDF_TOKEN_PATTERN = re.compile(r'"([^"]*)"|\{|\}')
 _STEAM_SKIP_TYPES = frozenset(("tool", "music", "video", "series", "advertising"))
+_STEAM_SKIP_NAME_PARTS = (
+    "steamworks common redistributables",
+    "steam linux runtime",
+    "proton ",
+    "directx",
+    "vc_redist",
+    "spacewar",
+)
 
 
 def _parse_vdf_simple(path):
@@ -129,6 +142,9 @@ def scan_steam_games(steam_exe_path):
             if appid_str in seen_appids:
                 continue
             name = appstate.get("name") or appstate.get("Name") or f"App {appid_str}"
+            name_lower = name.lower()
+            if any(part in name_lower for part in _STEAM_SKIP_NAME_PARTS):
+                continue
             app_type = (appstate.get("type") or appstate.get("Type") or "").lower()
             if app_type in _STEAM_SKIP_TYPES:
                 continue
@@ -143,46 +159,210 @@ def scan_steam_games(steam_exe_path):
     return games
 
 
+def _epic_manifest_paths(manifests_dir):
+    """All Epic .item / manifest files in a folder (no subdirs)."""
+    paths = set()
+    for pattern in ("*.item", "*"):
+        for item_path in glob.glob(os.path.join(manifests_dir, pattern)):
+            if os.path.isfile(item_path):
+                paths.add(item_path)
+    return sorted(paths)
+
+
+def _epic_resolve_exe(install_location, data):
+    install_location = os.path.normpath(install_location.replace("/", os.sep))
+    launch_exe = (
+        data.get("LaunchExecutable")
+        or data.get("LaunchExecutablePath")
+        or data.get("Executable")
+    )
+    if launch_exe:
+        exe_path = os.path.normpath(os.path.join(install_location, launch_exe.replace("/", os.sep)))
+        if os.path.isfile(exe_path):
+            return exe_path
+    launch_cmd = (data.get("LaunchCommand") or "").strip()
+    if launch_cmd:
+        for name in (launch_cmd, launch_cmd + ".exe"):
+            exe_path = os.path.join(install_location, name.replace("/", os.sep))
+            if os.path.isfile(exe_path):
+                return os.path.normpath(exe_path)
+    return None
+
+
+def _epic_image_url(data):
+    """Remote image URL from Epic manifest, if present."""
+    if not isinstance(data, dict):
+        return None
+    for key in (
+        "ImageUrl",
+        "ImageURI",
+        "TitleImage",
+        "Thumbnail",
+        "LandscapeImage",
+        "MasterImage",
+        "IconUrl",
+        "Icon",
+        "Image",
+    ):
+        val = data.get(key)
+        if isinstance(val, str) and val.startswith("http"):
+            return val.strip()
+    for nested_key in ("Metadata", "CustomMetadata", "AppInstallationInfo"):
+        nested = data.get(nested_key)
+        if isinstance(nested, dict):
+            url = _epic_image_url(nested)
+            if url:
+                return url
+    return None
+
+
+def _epic_is_playable(data):
+    if data.get("bIsIncompleteInstall"):
+        return False
+    if data.get("bIsExecutable") is False:
+        return False
+    categories = data.get("AppCategories") or []
+    if categories and "games" not in [str(c).lower() for c in categories]:
+        if "applications" in [str(c).lower() for c in categories]:
+            return False
+    technical = (data.get("TechnicalType") or "").lower()
+    if technical and "games" not in technical and "applications" in technical:
+        return False
+    return True
+
+
 def scan_epic_games():
     """
-    Scans installed Epic Games by manifests.
+    Scans installed Epic Games by manifests (.item JSON in Manifests).
     Returns list of dict: name, platform="epic", exe_path, launch_args.
     """
     games = []
-    seen_exe = set()  # one exe — one entry (avoid duplicates with two Manifest paths)
+    seen_exe = set()
     for manifests_dir in EPIC_MANIFESTS_DIRS:
         if not os.path.isdir(manifests_dir):
             continue
-        for item_path in glob.glob(os.path.join(manifests_dir, "*")):
-            if os.path.isdir(item_path):
-                continue
+        for item_path in _epic_manifest_paths(manifests_dir):
             try:
                 with open(item_path, "r", encoding="utf-8", errors="replace") as f:
                     data = json.load(f)
             except Exception:
                 continue
+            if not isinstance(data, dict):
+                continue
+            if not _epic_is_playable(data):
+                continue
             install_location = data.get("InstallLocation") or data.get("InstallationLocation")
-            if not install_location or not os.path.isdir(install_location):
+            if not install_location:
                 continue
-            launch_exe = data.get("LaunchExecutable") or data.get("LaunchExecutablePath") or data.get("Executable")
-            if not launch_exe:
+            install_location = os.path.normpath(install_location.replace("/", os.sep))
+            if not os.path.isdir(install_location):
                 continue
-            exe_path = os.path.normpath(os.path.join(install_location, launch_exe.replace("/", os.sep)))
-            if not os.path.isfile(exe_path):
+            exe_path = _epic_resolve_exe(install_location, data)
+            if not exe_path:
                 continue
             exe_key = exe_path.lower()
             if exe_key in seen_exe:
                 continue
             seen_exe.add(exe_key)
-            display_name = data.get("DisplayName") or data.get("AppName") or data.get("CatalogItemId") or os.path.splitext(os.path.basename(exe_path))[0]
-            games.append({
+            display_name = (
+                data.get("DisplayName")
+                or data.get("AppName")
+                or data.get("CatalogItemId")
+                or os.path.splitext(os.path.basename(exe_path))[0]
+            )
+            entry = {
                 "name": display_name,
                 "platform": "epic",
                 "exe_path": exe_path,
                 "launch_args": "-fullscreen",
-            })
+            }
+            img_url = _epic_image_url(data)
+            if img_url:
+                entry["epic_image_url"] = img_url
+            games.append(entry)
     games.sort(key=lambda g: g["name"].lower())
     return games
+
+
+def _find_twitch_exe_windows():
+    """Twitch desktop app path from common locations and uninstall registry."""
+    candidates = []
+    local = os.environ.get("LOCALAPPDATA", "")
+    prog = os.environ.get("ProgramFiles", r"C:\Program Files")
+    prog86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+    for folder in (
+        os.path.join(local, "Twitch"),
+        os.path.join(local, "Twitch", "Bin"),
+        os.path.join(prog, "Twitch"),
+        os.path.join(prog86, "Twitch"),
+    ):
+        if folder:
+            candidates.append(os.path.join(folder, "Twitch.exe"))
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return os.path.normpath(path)
+    if os.name != "nt":
+        return None
+    try:
+        import winreg
+    except ImportError:
+        return None
+    uninstall_roots = (
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    )
+    for root, subkey in uninstall_roots:
+        try:
+            key = winreg.OpenKey(root, subkey)
+        except OSError:
+            continue
+        try:
+            n = winreg.QueryInfoKey(key)[0]
+            for i in range(n):
+                try:
+                    sk = winreg.OpenKey(key, winreg.EnumKey(key, i))
+                    try:
+                        display, _ = winreg.QueryValueEx(sk, "DisplayName")
+                    except OSError:
+                        continue
+                    if "twitch" not in str(display).lower():
+                        continue
+                    for value_name in ("DisplayIcon", "InstallLocation"):
+                        try:
+                            val, _ = winreg.QueryValueEx(sk, value_name)
+                        except OSError:
+                            continue
+                        if not val:
+                            continue
+                        val = str(val).strip().strip('"')
+                        if val.lower().endswith(".exe") and os.path.isfile(val):
+                            return os.path.normpath(val)
+                        if os.path.isdir(val):
+                            exe = os.path.join(val, "Twitch.exe")
+                            if os.path.isfile(exe):
+                                return os.path.normpath(exe)
+                except OSError:
+                    pass
+        finally:
+            try:
+                winreg.CloseKey(key)
+            except Exception:
+                pass
+    return None
+
+
+def scan_twitch_app():
+    """Twitch desktop client if installed (not from Steam/Epic manifests)."""
+    exe = _find_twitch_exe_windows()
+    if not exe:
+        return []
+    return [{
+        "name": "Twitch",
+        "platform": "twitch",
+        "exe_path": exe,
+        "launch_args": "",
+    }]
 
 
 def scan_all(steam_exe_path=None):
@@ -196,7 +376,8 @@ def scan_all(steam_exe_path=None):
             steam_exe_path = None
     steam = scan_steam_games(steam_exe_path) if steam_exe_path else []
     epic = scan_epic_games()
-    return steam + epic
+    twitch = scan_twitch_app()
+    return steam + epic + twitch
 
 
 def scan_nsp_games(root_folder):
@@ -227,6 +408,7 @@ def scan_nsp_games(root_folder):
                 "name": display,
                 "platform": "nsp",
                 "nsp_path": full,
+                "nsp_filename": stem,
             })
     games.sort(key=lambda g: g["name"].lower())
     return games

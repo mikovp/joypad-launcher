@@ -323,6 +323,7 @@ def build_settings_menu(config):
             ("ddcci_log", "Debug log: %s" % _on_off(ddcci.get("log"))),
         ]),
         ("Appearance", [
+            ("ui_mode", "View: %s" % _ui_mode_label(_ui_mode_from_theme(theme))),
             ("background", "Background: %s" % _on_off(_background_enabled(config))),
             ("font_scale", "Font scale: %.2f" % scale),
             ("font_size_title", "Title size: %d" % title_sz),
@@ -331,6 +332,7 @@ def build_settings_menu(config):
             ("font_bold_title", "Bold title: %s" % _on_off(theme.get("font_bold_title"))),
             ("font_bold_list", "Bold list: %s" % _on_off(theme.get("font_bold_list"))),
             ("auto_font_boost", "Low-res boost: %s" % _on_off(theme.get("auto_font_boost_low_res", True))),
+            ("cdn_covers", "CDN covers: %s" % _on_off(theme.get("cdn_covers", True))),
         ]),
         ("Games & launch", [
             ("auto_scan", "Auto-scan: %s" % _on_off(config.get("auto_scan"))),
@@ -358,6 +360,9 @@ def apply_setting_toggle(config, key):
         ddcci = config.setdefault("ddcci", {})
         cur = int(ddcci.get("delay_ms", 2000))
         ddcci["delay_ms"] = _cycle_option(cur, _DDCCI_DELAY_OPTIONS)
+    elif key == "ui_mode":
+        theme = config.setdefault("theme", {})
+        theme["ui_mode"] = "tiles" if _ui_mode_from_theme(theme) == "list" else "list"
     elif key == "background":
         theme = config.setdefault("theme", {})
         if _background_enabled(config):
@@ -394,6 +399,12 @@ def apply_setting_toggle(config, key):
         if cur is None:
             cur = True
         theme["auto_font_boost_low_res"] = not bool(cur)
+    elif key == "cdn_covers":
+        theme = config.setdefault("theme", {})
+        cur = theme.get("cdn_covers")
+        if cur is None:
+            cur = True
+        theme["cdn_covers"] = not bool(cur)
     elif key == "auto_scan":
         config["auto_scan"] = not bool(config.get("auto_scan"))
     elif key == "steam_silent":
@@ -874,11 +885,10 @@ def _try_launch_game(g, steam_path, default_args, steam_start_args, steam_skip_r
     return (False, 15)  # axis_held
 
 
-def build_categorized_game_list(games):
+def _game_sections(games):
     """
-    Build UI list entries: category headers and game rows.
-    Order: Steam → Epic Games → Nintendo Switch → Other (system and unknown platform).
-    Empty categories are omitted.
+    Group games by platform. Order: Steam → Epic → Switch → Other.
+    Returns [(section_title, [game, ...]), ...]; empty sections omitted.
     """
     buckets = {"steam": [], "epic": [], "nsp": [], "_other": []}
     for g in games:
@@ -897,20 +907,84 @@ def build_categorized_game_list(games):
         ("epic", "Epic Games"),
         ("nsp", "Nintendo Switch"),
     ]
-    items = []
+    out = []
     for key, title in sections:
         lst = buckets[key]
-        if not lst:
-            continue
+        if lst:
+            out.append((title, lst))
+    other = buckets["_other"]
+    if other:
+        out.append(("Other", other))
+    return out
+
+
+def build_categorized_game_list(games):
+    """Flat list with category headers and game rows (list UI)."""
+    items = []
+    for title, lst in _game_sections(games):
         items.append({"kind": "header", "title": title})
         for game in lst:
             items.append({"kind": "game", "game": game})
-    other = buckets["_other"]
-    if other:
-        items.append({"kind": "header", "title": "Other"})
-        for game in other:
-            items.append({"kind": "game", "game": game})
     return items
+
+
+def build_tile_sections(games):
+    """Sections for tile grid UI: [{title, games}, ...]."""
+    return [{"title": title, "games": lst} for title, lst in _game_sections(games)]
+
+
+def _ui_mode_from_theme(theme_section):
+    v = (theme_section or {}).get("ui_mode")
+    if isinstance(v, str) and v.strip().lower() == "tiles":
+        return "tiles"
+    return "list"
+
+
+def _ui_mode_label(mode):
+    return "Tiles" if mode == "tiles" else "List"
+
+
+def compute_tile_grid(screen_w, screen_h, hint_line_h, hero_min=80, hero_max=280):
+    """
+    Square tile grid: N tiles per row, rows stacked below (scroll vertically).
+    """
+    side_margin = max(24, screen_w // 40)
+    gap = max(8, min(14, screen_w // 120))
+    top_banner = 36 + hint_line_h * 2
+    bottom_hint = max(44, hint_line_h + 24)
+    label_h = max(28, hint_line_h + 8)
+    label_under = hint_line_h + 4
+    hero_h = max(hero_min, min(hero_max, int(screen_h * 0.2)))
+    grid_top = top_banner + hero_h + gap
+    grid_h = max(120, screen_h - grid_top - bottom_hint)
+    usable_w = screen_w - 2 * side_margin
+
+    min_tile = 88
+    max_tile = 200
+    cols = max(3, (usable_w + gap) // (min_tile + gap))
+    tile_size = (usable_w - gap * (cols - 1)) // cols
+    while tile_size < min_tile and cols > 2:
+        cols -= 1
+        tile_size = (usable_w - gap * (cols - 1)) // cols
+    tile_size = max(min_tile, min(max_tile, tile_size))
+    grid_content_w = cols * tile_size + gap * max(0, cols - 1)
+    grid_offset_x = side_margin + max(0, (usable_w - grid_content_w) // 2)
+
+    return {
+        "cols": cols,
+        "tile_w": tile_size,
+        "tile_h": tile_size,
+        "gap": gap,
+        "hero_h": hero_h,
+        "grid_top": grid_top,
+        "grid_h": grid_h,
+        "side_margin": side_margin,
+        "grid_offset_x": grid_offset_x,
+        "label_h": label_h,
+        "top_banner": top_banner,
+        "bottom_hint": bottom_hint,
+        "section_header_h": label_h,
+    }
 
 
 def run_launcher():
@@ -939,6 +1013,7 @@ def run_launcher():
         sys.exit(1)
 
     list_items = build_categorized_game_list(games)
+    tile_sections = build_tile_sections(games)
     game_row_numbers = {}
     section_game_index = 0
     for _i, _it in enumerate(list_items):
@@ -949,6 +1024,28 @@ def run_launcher():
             game_row_numbers[_i] = section_game_index
 
     steam_path = get_steam_path(config)
+    steam_dir = os.path.normpath(os.path.dirname(steam_path)) if steam_path else None
+    from covers import CoverCache
+
+    _theme_cfg = config.get("theme") or {}
+    covers_folder = (_theme_cfg.get("covers_folder") or "covers").strip() or "covers"
+    cdn_covers = _theme_cfg.get("cdn_covers")
+    if cdn_covers is None:
+        cdn_covers = True
+    else:
+        cdn_covers = bool(cdn_covers)
+    cdn_cache_folder = (_theme_cfg.get("cdn_cache_folder") or "cover_cdn_cache").strip() or "cover_cdn_cache"
+    rawg_api_key = (config.get("rawg_api_key") or _theme_cfg.get("rawg_api_key") or "").strip() or None
+    cover_cache = CoverCache(
+        _BASE_DIR,
+        steam_dir=steam_dir,
+        covers_subdir=covers_folder,
+        cdn_enabled=cdn_covers,
+        cdn_cache_subdir=cdn_cache_folder,
+        rawg_api_key=rawg_api_key,
+    )
+    cover_cache.prefetch_async(games)
+    ui_mode = _ui_mode_from_theme(_theme_cfg)
     default_args = config.get("fullscreen_args", {})
     steam_start_args = (config.get("steam_start_args") or "").strip() or None
     # Steam games that should not auto-restore launcher focus on exit (e.g. games with external launchers like Fallout 76).
@@ -1115,8 +1212,336 @@ def run_launcher():
                 return
 
     selected = _first_game_row_index()
+    tile_pick = 0
+    tile_scroll_y = 0
+    tile_geom = compute_tile_grid(w, h, hint_line_h)
+    tile_layout = []
+    tile_all_games = []
+    tile_content_h = 0
+    tile_snap_scroll = True
     axis_held = 0  # pause between selection steps (lower = more responsive)
     AXIS_REPEAT_FRAMES = 18  # ~0.3s at 60 FPS — pause between selection steps
+
+    def _hint_surfaces():
+        if ui_mode == "tiles":
+            title = font_hint.render("Pick a game (tiles)", True, title_color)
+            hint = font_hint.render(
+                "A — launch   B — menu   ←→↑↓ move   LB/RB / LT/RT — scroll",
+                True,
+                title_color,
+            )
+        else:
+            title = font_hint.render("Select a game or action (gamepad or keyboard)", True, title_color)
+            hint = font_hint.render(
+                "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
+                True,
+                title_color,
+            )
+        return title, hint
+
+    def rebuild_tile_geometry():
+        nonlocal tile_geom
+        tile_geom = compute_tile_grid(w, h, hint_line_h)
+        rebuild_tile_layout()
+
+    def tile_row_stride():
+        return tile_geom["tile_h"] + tile_geom["gap"] + font_hint.get_linesize() + 4
+
+    def rebuild_tile_layout():
+        nonlocal tile_layout, tile_all_games, tile_content_h
+        tile_all_games = []
+        layout = []
+        tg = tile_geom
+        cols = tg["cols"]
+        tw, th = tg["tile_w"], tg["tile_h"]
+        gap = tg["gap"]
+        ox = tg["grid_offset_x"]
+        stride = tile_row_stride()
+        y = 0
+        header_h = tg["section_header_h"]
+        for sec in tile_sections:
+            layout.append({"kind": "header", "y": y, "title": sec["title"]})
+            y += header_h
+            games = sec["games"]
+            if not games:
+                layout.append({"kind": "empty", "y": y, "title": sec["title"]})
+                y += font_hint.get_linesize() + gap
+                continue
+            rows = (len(games) + cols - 1) // cols
+            for i, game in enumerate(games):
+                gi = len(tile_all_games)
+                tile_all_games.append(game)
+                row, col = divmod(i, cols)
+                layout.append({
+                    "kind": "tile",
+                    "y": y + row * stride,
+                    "x": ox + col * (tw + gap),
+                    "w": tw,
+                    "h": th,
+                    "game_index": gi,
+                    "game": game,
+                })
+            y += rows * stride + gap * 2
+        tile_layout = layout
+        tile_content_h = y
+
+    rebuild_tile_layout()
+
+    def tile_selected_game():
+        if not tile_all_games:
+            return None
+        return tile_all_games[min(tile_pick, len(tile_all_games) - 1)]
+
+    def _tile_pick_location(pick):
+        """Returns (section_index, local_index) for global pick."""
+        off = 0
+        for si, sec in enumerate(tile_sections):
+            n = len(sec["games"])
+            if pick < off + n:
+                return si, pick - off
+            off += n
+        return 0, 0
+
+    def _global_pick(section_i, local_i):
+        off = 0
+        for j in range(section_i):
+            off += len(tile_sections[j]["games"])
+        return off + local_i
+
+    def _tile_entry_for_pick(pick):
+        for ent in tile_layout:
+            if ent.get("kind") == "tile" and ent.get("game_index") == pick:
+                return ent
+        return None
+
+    def tile_max_scroll_y():
+        return max(0, tile_content_h - tile_geom["grid_h"])
+
+    def _tile_snap_scroll():
+        nonlocal tile_scroll_y
+        ent = _tile_entry_for_pick(tile_pick)
+        if not ent:
+            return
+        top = ent["y"]
+        bot = top + ent["h"] + font_hint.get_linesize() + 8
+        view = tile_geom["grid_h"]
+        if top < tile_scroll_y:
+            tile_scroll_y = top
+        elif bot > tile_scroll_y + view:
+            tile_scroll_y = bot - view
+        tile_scroll_y = max(0, min(tile_scroll_y, tile_max_scroll_y()))
+
+    def tile_move(dx, dy):
+        nonlocal tile_pick, tile_snap_scroll
+        if not tile_all_games:
+            return
+        cols = tile_geom["cols"]
+        sec_i, local = _tile_pick_location(tile_pick)
+        games = tile_sections[sec_i]["games"]
+        n = len(games)
+        if n == 0:
+            return
+        col = local % cols
+        row = local // cols
+        max_row = (n - 1) // cols
+
+        if dy < 0:
+            if row > 0:
+                local = (row - 1) * cols + col
+            elif sec_i > 0:
+                for prev in range(sec_i - 1, -1, -1):
+                    pg = tile_sections[prev]["games"]
+                    if not pg:
+                        continue
+                    prow = (len(pg) - 1) // cols
+                    local = prow * cols + min(col, len(pg) - 1 - prow * cols)
+                    sec_i = prev
+                    break
+                else:
+                    return
+            else:
+                return
+        elif dy > 0:
+            if row < max_row:
+                nxt = (row + 1) * cols + col
+                if nxt < n:
+                    local = nxt
+                else:
+                    return
+            else:
+                moved = False
+                for nxt in range(sec_i + 1, len(tile_sections)):
+                    ng = tile_sections[nxt]["games"]
+                    if not ng:
+                        continue
+                    local = min(col, len(ng) - 1)
+                    sec_i = nxt
+                    moved = True
+                    break
+                if not moved:
+                    return
+        if dx < 0:
+            if col > 0:
+                local = row * cols + (col - 1)
+            elif row > 0:
+                local = (row - 1) * cols + min(cols - 1, n - 1 - (row - 1) * cols)
+            elif sec_i > 0:
+                for prev in range(sec_i - 1, -1, -1):
+                    pg = tile_sections[prev]["games"]
+                    if not pg:
+                        continue
+                    prow = (len(pg) - 1) // cols
+                    plocal = prow * cols + min(cols - 1, len(pg) - 1 - prow * cols)
+                    sec_i, local = prev, plocal
+                    break
+                else:
+                    return
+            else:
+                return
+        elif dx > 0:
+            if col < cols - 1 and row * cols + col + 1 < n:
+                local = row * cols + col + 1
+            elif row < max_row:
+                local = (row + 1) * cols
+                if local >= n:
+                    local = n - 1
+            elif sec_i + 1 < len(tile_sections):
+                for nxt in range(sec_i + 1, len(tile_sections)):
+                    ng = tile_sections[nxt]["games"]
+                    if ng:
+                        sec_i, local = nxt, 0
+                        break
+                else:
+                    return
+            else:
+                return
+
+        if local >= n:
+            local = n - 1
+        tile_pick = _global_pick(sec_i, local)
+        tile_snap_scroll = True
+        _tile_snap_scroll()
+
+    def tile_page_scroll(delta_pages):
+        nonlocal tile_scroll_y, tile_snap_scroll
+        if delta_pages == 0:
+            return
+        step = max(tile_geom["grid_h"] // 2, tile_row_stride() * 2)
+        tile_scroll_y = max(
+            0,
+            min(tile_max_scroll_y(), tile_scroll_y + delta_pages * step),
+        )
+        tile_snap_scroll = False
+
+    def get_selected_item():
+        if ui_mode == "tiles":
+            g = tile_selected_game()
+            if g is None:
+                return None
+            return {"kind": "game", "game": g}
+        if 0 <= selected < len(list_items) and list_items[selected]["kind"] == "game":
+            return list_items[selected]
+        return None
+
+    def nav_vertical(delta):
+        if ui_mode == "tiles":
+            tile_move(0, delta)
+        else:
+            move_game_selection(delta)
+
+    def nav_horizontal(delta):
+        if ui_mode == "tiles":
+            tile_move(delta, 0)
+
+    def nav_page(delta):
+        if ui_mode == "tiles":
+            tile_page_scroll(delta)
+        else:
+            page_scroll(delta)
+
+    def nav_lb_rb(delta):
+        nav_page(delta)
+
+    def _truncate_to_width(font, text, max_w):
+        t = (text or "").strip() or "Untitled"
+        if font.size(t)[0] <= max_w:
+            return t
+        ell = "…"
+        for n in range(len(t), 0, -1):
+            trial = t[:n] + ell
+            if font.size(trial)[0] <= max_w:
+                return trial
+        return ell
+
+    def draw_tiles_view():
+        if not tile_sections:
+            return
+        g = tile_selected_game()
+        gname = g.get("name", "Untitled") if g else ""
+        tg = tile_geom
+        sm = tg["side_margin"]
+        gap = tg["gap"]
+        tw, th = tg["tile_w"], tg["tile_h"]
+
+        hero_y = tg["top_banner"]
+        hero_side = min(tg["hero_h"], w - 2 * sm)
+        hero_w = hero_h = hero_side
+        if g:
+            hero_img = cover_cache.get(g, hero_w, hero_h - 4)
+            if hero_img:
+                screen.blit(hero_img, (sm, hero_y))
+            name_x = sm + hero_w + gap
+            name_w = w - name_x - sm
+        else:
+            name_x = sm
+            name_w = w - 2 * sm
+        title_surf = font_title.render(_truncate_to_width(font_title, gname, name_w), True, text_color)
+        screen.blit(title_surf, (name_x, hero_y + (hero_h - title_surf.get_height()) // 2))
+
+        grid_y0 = tg["grid_top"]
+        prev_clip = screen.get_clip()
+        screen.set_clip(pygame.Rect(0, grid_y0, w, tg["grid_h"]))
+        try:
+            for ent in tile_layout:
+                sy = grid_y0 + ent["y"] - tile_scroll_y
+                if ent["kind"] == "header":
+                    if sy + tg["section_header_h"] < grid_y0 or sy > grid_y0 + tg["grid_h"]:
+                        continue
+                    text = font_category.render(ent["title"], True, title_color)
+                    screen.blit(text, (sm, sy))
+                elif ent["kind"] == "empty":
+                    if sy + font_hint.get_linesize() < grid_y0 or sy > grid_y0 + tg["grid_h"]:
+                        continue
+                    msg = font_hint.render("(no games)", True, title_color)
+                    screen.blit(msg, (sm + 8, sy))
+                elif ent["kind"] == "tile":
+                    eh = ent["h"] + font_hint.get_linesize() + 8
+                    if sy + eh < grid_y0 or sy > grid_y0 + tg["grid_h"]:
+                        continue
+                    x, y = ent["x"], sy
+                    game = ent["game"]
+                    img = cover_cache.get(game, tw, th)
+                    if img:
+                        screen.blit(img, (x, y))
+                    else:
+                        pygame.draw.rect(screen, (50, 50, 60), (x, y, tw, th))
+                    if ent["game_index"] == tile_pick:
+                        pygame.draw.rect(screen, highlight_color, (x - 3, y - 3, tw + 6, th + 6), 3)
+                    label = _truncate_to_width(font_hint, game.get("name", ""), tw)
+                    lbl = font_hint.render(label, True, text_color)
+                    screen.blit(lbl, (x, y + th + 2))
+        finally:
+            screen.set_clip(prev_clip)
+
+        max_sy = tile_max_scroll_y()
+        if max_sy > 0:
+            if tile_scroll_y > 0:
+                screen.blit(font_list.render(" ▲", True, title_color), (w - 50, grid_y0 + 4))
+            if tile_scroll_y < max_sy:
+                screen.blit(
+                    font_list.render(" ▼", True, title_color),
+                    (w - 50, grid_y0 + tg["grid_h"] - font_list.get_linesize() - 4),
+                )
 
     # Overlay menus: None | "system" | "settings"  (B / Esc)
     system_menu_items = [
@@ -1214,9 +1639,11 @@ def run_launcher():
         nonlocal font_bold_title, font_bold_list
         nonlocal font_title, font_list, font_category, font_hint
         nonlocal line_h, hint_line_h, list_start_y, list_bottom_margin, list_line_skip
-        nonlocal title_surface, hint_surface
+        nonlocal title_surface, hint_surface, ui_mode
         nonlocal cum_starts, row_specs, list_content_height, viewport_h, max_scroll_y
+        nonlocal tile_geom
         theme = _theme_from_config(config)
+        ui_mode = _ui_mode_from_theme(config.get("theme") or {})
         bg_color = theme["background"]
         text_color = theme["text"]
         highlight_color = theme["cursor"]
@@ -1239,12 +1666,8 @@ def run_launcher():
         list_start_y = 36 + hint_line_h * 2
         list_bottom_margin = max(44, hint_line_h + 24)
         list_line_skip = font_list.get_linesize() + 3
-        title_surface = font_hint.render("Select a game or action (gamepad or keyboard)", True, title_color)
-        hint_surface = font_hint.render(
-            "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
-            True,
-            title_color,
-        )
+        title_surface, hint_surface = _hint_surfaces()
+        rebuild_tile_geometry()
         cum_starts, row_specs, list_content_height = build_list_layout()
         viewport_h = max(60, h - list_start_y - list_bottom_margin)
         max_scroll_y = max(0, list_content_height - viewport_h)
@@ -1255,10 +1678,16 @@ def run_launcher():
             background_image_path = resolve_background_image(config)
             bg_surface = _load_background_surface(background_image_path, w, h)
         elif key in (
+            "ui_mode",
             "font_scale", "font_size_title", "font_size_list", "font_size_hint",
             "font_bold_title", "font_bold_list", "auto_font_boost",
         ):
             reload_fonts_and_layout()
+        elif key == "cdn_covers":
+            _theme_cfg = config.get("theme") or {}
+            cover_cache._cdn.enabled = bool(_theme_cfg.get("cdn_covers", True))
+            if cover_cache._cdn.enabled:
+                cover_cache.prefetch_async(games)
         elif key == "steam_silent":
             steam_start_args = (config.get("steam_start_args") or "").strip() or None
         rebuild_settings_layout()
@@ -1378,14 +1807,7 @@ def run_launcher():
             _wait_for_game_and_restore(process, hwnd, platform)
         return (False, 15)
 
-    # Cache static text surfaces (unchanged each frame)
-    # Top banner and bottom hint share font_hint (same size as theme.font_size_hint / half-title default).
-    title_surface = font_hint.render("Select a game or action (gamepad or keyboard)", True, title_color)
-    hint_surface = font_hint.render(
-        "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
-        True,
-        title_color,
-    )
+    title_surface, hint_surface = _hint_surfaces()
 
     def show_launching_overlay(_game_name=None):
         """Blurred overlay with rotating dots: large→small gradient, smooth fade."""
@@ -1465,16 +1887,20 @@ def run_launcher():
                         overlay_menu = "system"
                         overlay_index = 0
                     if event.key == pygame.K_UP:
-                        move_game_selection(-1)
+                        nav_vertical(-1)
                     if event.key == pygame.K_DOWN:
-                        move_game_selection(1)
+                        nav_vertical(1)
+                    if event.key == pygame.K_LEFT:
+                        nav_horizontal(-1)
+                    if event.key == pygame.K_RIGHT:
+                        nav_horizontal(1)
                     if event.key == pygame.K_PAGEUP:
-                        page_scroll(-1)
+                        nav_page(-1)
                     if event.key == pygame.K_PAGEDOWN:
-                        page_scroll(1)
+                        nav_page(1)
                     if event.key == pygame.K_RETURN:
-                        it = list_items[selected]
-                        if it["kind"] != "game":
+                        it = get_selected_item()
+                        if not it:
                             continue
                         g = it["game"]
                         if g.get("platform") in ("steam", "epic", "nsp"):
@@ -1495,8 +1921,8 @@ def run_launcher():
                         overlay_confirm()
                 else:
                     if event.button == BTN_A or event.button == BTN_START:
-                        it = list_items[selected]
-                        if it["kind"] != "game":
+                        it = get_selected_item()
+                        if not it:
                             continue
                         g = it["game"]
                         if g.get("platform") in ("steam", "epic", "nsp"):
@@ -1512,9 +1938,9 @@ def run_launcher():
                         overlay_menu = "system"
                         overlay_index = 0
                     elif event.button == BTN_LB:
-                        page_scroll(-1)
+                        nav_lb_rb(-1)
                     elif event.button == BTN_RB:
-                        page_scroll(1)
+                        nav_lb_rb(1)
 
             if event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_Y:
                 if axis_held <= 0:
@@ -1527,23 +1953,31 @@ def run_launcher():
                             axis_held = AXIS_REPEAT_FRAMES
                     else:
                         if event.value < -DEADZONE:
-                            move_game_selection(-1)
+                            nav_vertical(-1)
                             axis_held = AXIS_REPEAT_FRAMES
                         elif event.value > DEADZONE:
-                            move_game_selection(1)
+                            nav_vertical(1)
                             axis_held = AXIS_REPEAT_FRAMES
+            elif event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_X:
+                if not overlay_menu and axis_held <= 0:
+                    if event.value < -DEADZONE:
+                        nav_horizontal(-1)
+                        axis_held = AXIS_REPEAT_FRAMES
+                    elif event.value > DEADZONE:
+                        nav_horizontal(1)
+                        axis_held = AXIS_REPEAT_FRAMES
             elif event.type == pygame.JOYAXISMOTION:
                 if not overlay_menu and axis_held <= 0:
                     if event.axis == 5 and event.value > 0.72:
                         if trig_page_arm_rt:
-                            page_scroll(1)
+                            nav_page(1)
                             trig_page_arm_rt = False
                             axis_held = AXIS_REPEAT_FRAMES * 2
                     elif event.axis == 5 and event.value < 0.2:
                         trig_page_arm_rt = True
                     if event.axis == 4 and event.value > 0.72:
                         if trig_page_arm_lt:
-                            page_scroll(-1)
+                            nav_page(-1)
                             trig_page_arm_lt = False
                             axis_held = AXIS_REPEAT_FRAMES * 2
                     elif event.axis == 4 and event.value < 0.2:
@@ -1559,26 +1993,43 @@ def run_launcher():
                             axis_held = AXIS_REPEAT_FRAMES
                     else:
                         if event.value[1] > 0:
-                            move_game_selection(-1)
+                            nav_vertical(-1)
                             axis_held = AXIS_REPEAT_FRAMES
                         elif event.value[1] < 0:
-                            move_game_selection(1)
+                            nav_vertical(1)
+                            axis_held = AXIS_REPEAT_FRAMES
+                        if event.value[0] < 0:
+                            nav_horizontal(-1)
+                            axis_held = AXIS_REPEAT_FRAMES
+                        elif event.value[0] > 0:
+                            nav_horizontal(1)
                             axis_held = AXIS_REPEAT_FRAMES
 
         if axis_held > 0:
             axis_held -= 1
 
         if not overlay_menu and joysticks and axis_held <= 0:
-            y = joysticks[0].get_axis(AXIS_LEFT_Y)
+            stick = joysticks[0]
+            y = stick.get_axis(AXIS_LEFT_Y)
+            x = stick.get_axis(AXIS_LEFT_X)
             if y < -DEADZONE:
-                move_game_selection(-1)
+                nav_vertical(-1)
                 axis_held = AXIS_REPEAT_FRAMES
             elif y > DEADZONE:
-                move_game_selection(1)
+                nav_vertical(1)
+                axis_held = AXIS_REPEAT_FRAMES
+            elif x < -DEADZONE:
+                nav_horizontal(-1)
+                axis_held = AXIS_REPEAT_FRAMES
+            elif x > DEADZONE:
+                nav_horizontal(1)
                 axis_held = AXIS_REPEAT_FRAMES
 
+        if ui_mode == "tiles" and tile_snap_scroll:
+            _tile_snap_scroll()
+
         # Keep selected row on screen only when navigating with ↑↓ / stick (page scroll must not snap back).
-        if list_snap_scroll_to_selection:
+        if ui_mode == "list" and list_snap_scroll_to_selection:
             sel_top = cum_starts[selected]
             sel_h = row_specs[selected]["height"]
             sel_bot = sel_top + sel_h
@@ -1594,41 +2045,43 @@ def run_launcher():
         else:
             screen.fill(bg_color)
         screen.blit(title_surface, (60, 40))
-        screen.blit(hint_surface, (60, h - list_bottom_margin))
+        hint_bottom = tile_geom["bottom_hint"] if ui_mode == "tiles" else list_bottom_margin
+        screen.blit(hint_surface, (60, h - hint_bottom))
 
-        # Category list with wrapped titles and pixel-based scrolling
-        prev_clip = screen.get_clip()
-        screen.set_clip(pygame.Rect(0, list_start_y, w, viewport_h))
-        try:
-            for idx in range(len(list_items)):
-                y_content = cum_starts[idx]
-                rh = row_specs[idx]["height"]
-                screen_y = list_start_y + y_content - scroll_y
-                if screen_y + rh < list_start_y or screen_y > list_start_y + viewport_h:
-                    continue
-                spec = row_specs[idx]
-                if spec["kind"] == "header":
-                    text = font_category.render("  %s" % spec["title"], True, title_color)
-                    screen.blit(text, (60, screen_y))
-                else:
-                    color = highlight_color if idx == selected else text_color
-                    screen.blit(font_list.render(spec["prefix"], True, color), (list_left, screen_y))
-                    ly = screen_y
-                    for li, chunk in enumerate(spec["name_lines"]):
-                        surf = font_list.render(chunk, True, color)
-                        screen.blit(surf, (spec["x_text"], ly))
-                        ly += list_line_skip
-        finally:
-            screen.set_clip(prev_clip)
+        if ui_mode == "tiles":
+            draw_tiles_view()
+        else:
+            prev_clip = screen.get_clip()
+            screen.set_clip(pygame.Rect(0, list_start_y, w, viewport_h))
+            try:
+                for idx in range(len(list_items)):
+                    y_content = cum_starts[idx]
+                    rh = row_specs[idx]["height"]
+                    screen_y = list_start_y + y_content - scroll_y
+                    if screen_y + rh < list_start_y or screen_y > list_start_y + viewport_h:
+                        continue
+                    spec = row_specs[idx]
+                    if spec["kind"] == "header":
+                        text = font_category.render("  %s" % spec["title"], True, title_color)
+                        screen.blit(text, (60, screen_y))
+                    else:
+                        color = highlight_color if idx == selected else text_color
+                        screen.blit(font_list.render(spec["prefix"], True, color), (list_left, screen_y))
+                        ly = screen_y
+                        for chunk in spec["name_lines"]:
+                            surf = font_list.render(chunk, True, color)
+                            screen.blit(surf, (spec["x_text"], ly))
+                            ly += list_line_skip
+            finally:
+                screen.set_clip(prev_clip)
 
-        # Scroll hint arrows
-        if max_scroll_y > 0:
-            if scroll_y > 0:
-                up_arrow = font_list.render(" ▲", True, title_color)
-                screen.blit(up_arrow, (w - 50, list_start_y + 4))
-            if scroll_y < max_scroll_y:
-                down_arrow = font_list.render(" ▼", True, title_color)
-                screen.blit(down_arrow, (w - 50, list_start_y + viewport_h - font_list.get_linesize() - 4))
+            if max_scroll_y > 0:
+                if scroll_y > 0:
+                    up_arrow = font_list.render(" ▲", True, title_color)
+                    screen.blit(up_arrow, (w - 50, list_start_y + 4))
+                if scroll_y < max_scroll_y:
+                    down_arrow = font_list.render(" ▼", True, title_color)
+                    screen.blit(down_arrow, (w - 50, list_start_y + viewport_h - font_list.get_linesize() - 4))
 
         if overlay_menu:
             menu_width = min(w - 80, 860)

@@ -18,7 +18,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-py -3 -m PyInstaller --onefile --windowed --name JoypadLauncher --hidden-import scan_libraries --hidden-import ddcci --collect-submodules ddcci --add-data "config.example.json;." --clean launcher.py
+py -3 -m PyInstaller --onefile --windowed --name JoypadLauncher --hidden-import scan_libraries --hidden-import covers --hidden-import cover_cdn --hidden-import ddcci --collect-submodules ddcci --add-data "config.example.json;." --clean launcher.py
 if errorlevel 1 (
     echo Build failed.
     pause

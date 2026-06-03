@@ -15,7 +15,11 @@
     "auto_font_boost_low_res": true,
     "auto_font_boost_ref_height": 1080,
     "auto_font_boost_max": 1.65,
-    "font_scale": 1
+    "font_scale": 1,
+    "ui_mode": "list",
+    "covers_folder": "covers",
+    "cdn_covers": true,
+    "cdn_cache_folder": "cover_cdn_cache"
   },
   "nsp_roms_folder": "\\\\ws.lan\\share\\NS_Roms",
   "nsp_use_windows_association": true,

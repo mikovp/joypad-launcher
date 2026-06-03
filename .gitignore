@@ -22,6 +22,9 @@ dist/
 # User config (contains local paths)
 config.json
 
+# Downloaded cover art cache
+cover_cdn_cache/
+
 # Logs
 *.log
 launcher_error.log
