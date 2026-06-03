@@ -253,7 +253,8 @@ def save_config(data):
 
 
 _FONT_SCALE_OPTIONS = [1.0, 1.08, 1.15, 1.25, 1.35, 1.5]
-_TILE_SCALE_OPTIONS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5]
+_TILE_SCALE_OPTIONS = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 9.0]
+_TILE_SCALE_DEFAULT = 2.5
 _DDCCI_DELAY_OPTIONS = [1000, 2000, 3000, 5000]
 _FONT_SIZE_TITLE_OPTIONS = [42, 46, 52, 58, 64]
 _FONT_SIZE_LIST_OPTIONS = [28, 32, 38, 44, 50]
@@ -313,7 +314,7 @@ def build_settings_menu(config):
     theme = config.get("theme") or {}
     delay = int(ddcci.get("delay_ms", 2000))
     scale = float(theme.get("font_scale", 1.0) or 1.0)
-    tile_scale = _parse_tile_scale(theme.get("tile_scale"), 2.0)
+    tile_scale = _parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)
     title_sz = int(theme.get("font_size_title") or 42)
     list_sz = int(theme.get("font_size_list") or 28)
     hint_sz = theme.get("font_size_hint")
@@ -368,7 +369,7 @@ def apply_setting_toggle(config, key):
         theme["ui_mode"] = "tiles" if _ui_mode_from_theme(theme) == "list" else "list"
     elif key == "tile_scale":
         theme = config.setdefault("theme", {})
-        cur = _parse_tile_scale(theme.get("tile_scale"), 2.0)
+        cur = _parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)
         theme["tile_scale"] = _cycle_option(cur, _TILE_SCALE_OPTIONS)
     elif key == "background":
         theme = config.setdefault("theme", {})
@@ -951,7 +952,20 @@ def _ui_mode_label(mode):
     return "Tiles" if mode == "tiles" else "List"
 
 
-def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, hero_min=80, hero_max=280):
+def _tile_selection_title(game):
+    """One-line label above the grid (game name or .nsp filename)."""
+    if not game:
+        return "Untitled"
+    if (game.get("platform") or "").lower() == "nsp":
+        return (
+            game.get("nsp_filename")
+            or os.path.splitext(os.path.basename(game.get("nsp_path") or ""))[0]
+            or game.get("name", "Untitled")
+        )
+    return game.get("name", "Untitled")
+
+
+def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, title_line_h=None):
     """
     Square tile grid: N tiles per row, rows stacked below (scroll vertically).
     tile_scale enlarges tiles (fewer per row); set in theme.tile_scale or Settings.
@@ -962,8 +976,8 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, hero_min=
     top_banner = 36 + hint_line_h * 2
     bottom_hint = max(44, hint_line_h + 24)
     label_h = max(28, hint_line_h + 8)
-    hero_h = max(hero_min, min(int(hero_max * scale), int(screen_h * 0.24)))
-    grid_top = top_banner + hero_h + gap
+    selection_h = (title_line_h or label_h) + 8
+    grid_top = top_banner + selection_h + gap
     grid_h = max(120, screen_h - grid_top - bottom_hint)
     usable_w = screen_w - 2 * side_margin
 
@@ -985,7 +999,7 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, hero_min=
         "tile_w": tile_size,
         "tile_h": tile_size,
         "gap": gap,
-        "hero_h": hero_h,
+        "selection_h": selection_h,
         "grid_top": grid_top,
         "grid_h": grid_h,
         "side_margin": side_margin,
@@ -998,12 +1012,14 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, hero_min=
     }
 
 
-def _parse_tile_scale(value, default=1.0):
+def _parse_tile_scale(value, default=None):
+    if default is None:
+        default = _TILE_SCALE_DEFAULT
     if value is None:
         return default
     try:
         x = float(value)
-        return max(0.5, min(3.0, x))
+        return max(0.5, min(9.0, x))
     except (TypeError, ValueError):
         return default
 
@@ -1236,8 +1252,10 @@ def run_launcher():
     tile_pick = 0
     tile_scroll_y = 0
     _theme_for_tiles = config.get("theme") or {}
-    tile_scale = _parse_tile_scale(_theme_for_tiles.get("tile_scale"), 2.0)
-    tile_geom = compute_tile_grid(w, h, hint_line_h, tile_scale=tile_scale)
+    tile_scale = _parse_tile_scale(_theme_for_tiles.get("tile_scale"), _TILE_SCALE_DEFAULT)
+    tile_geom = compute_tile_grid(
+        w, h, hint_line_h, tile_scale=tile_scale, title_line_h=font_title.get_linesize()
+    )
     tile_layout = []
     tile_all_games = []
     tile_content_h = 0
@@ -1249,7 +1267,7 @@ def run_launcher():
         if ui_mode == "tiles":
             title = font_hint.render("Pick a game (tiles)", True, title_color)
             hint = font_hint.render(
-                "A — launch   B — menu   ←→↑↓ move   LB/RB / LT/RT — scroll",
+                "A — launch   B — menu   ←→↑↓   LB/RB — library (1st tile)   LT/RT — scroll",
                 True,
                 title_color,
             )
@@ -1264,9 +1282,11 @@ def run_launcher():
 
     def rebuild_tile_geometry():
         nonlocal tile_geom, tile_scale
-        _ts = _parse_tile_scale((config.get("theme") or {}).get("tile_scale"), 2.0)
+        _ts = _parse_tile_scale((config.get("theme") or {}).get("tile_scale"), _TILE_SCALE_DEFAULT)
         tile_scale = _ts
-        tile_geom = compute_tile_grid(w, h, hint_line_h, tile_scale=tile_scale)
+        tile_geom = compute_tile_grid(
+            w, h, hint_line_h, tile_scale=tile_scale, title_line_h=font_title.get_linesize()
+        )
         rebuild_tile_layout()
 
     def tile_row_stride():
@@ -1284,9 +1304,10 @@ def run_launcher():
         stride = tile_row_stride()
         y = 0
         header_h = tg["section_header_h"]
+        section_tile_gap = gap + font_hint.get_linesize() // 2
         for sec in tile_sections:
             layout.append({"kind": "header", "y": y, "title": sec["title"]})
-            y += header_h
+            y += header_h + section_tile_gap
             games = sec["games"]
             if not games:
                 layout.append({"kind": "empty", "y": y, "title": sec["title"]})
@@ -1305,6 +1326,7 @@ def run_launcher():
                     "h": th,
                     "game_index": gi,
                     "game": game,
+                    "first_row": row == 0,
                 })
             y += rows * stride + gap * 2
         tile_layout = layout
@@ -1339,6 +1361,16 @@ def run_launcher():
                 return ent
         return None
 
+    def _section_header_y_for_pick(pick):
+        """Content Y of the section header above the selected tile."""
+        header_y = 0
+        for ent in tile_layout:
+            if ent.get("kind") == "header":
+                header_y = ent["y"]
+            if ent.get("kind") == "tile" and ent.get("game_index") == pick:
+                return header_y
+        return 0
+
     def tile_max_scroll_y():
         return max(0, tile_content_h - tile_geom["grid_h"])
 
@@ -1347,14 +1379,52 @@ def run_launcher():
         ent = _tile_entry_for_pick(tile_pick)
         if not ent:
             return
+        header_y = _section_header_y_for_pick(tile_pick)
         top = ent["y"]
         bot = top + ent["h"] + font_hint.get_linesize() + 8
         view = tile_geom["grid_h"]
+        stride = max(1, tile_row_stride())
+        rows_from_header = (top - header_y) // stride if top > header_y else 0
         if top < tile_scroll_y:
-            tile_scroll_y = top
+            # First row(s) of a section: keep section title visible (scroll = header_y, usually 0).
+            if rows_from_header <= 1:
+                tile_scroll_y = header_y
+            else:
+                tile_scroll_y = top
         elif bot > tile_scroll_y + view:
             tile_scroll_y = bot - view
         tile_scroll_y = max(0, min(tile_scroll_y, tile_max_scroll_y()))
+
+    def _tile_step_section(sec_i, delta, col):
+        """Next/prev non-empty library; land on same column when possible."""
+        nsec = len(tile_sections)
+        for _ in range(nsec):
+            sec_i = (sec_i + delta) % nsec
+            games = tile_sections[sec_i]["games"]
+            if games:
+                return sec_i, min(col, len(games) - 1)
+        return sec_i, 0
+
+    def _tile_below(local, row, col, cols, n, max_row):
+        if local >= n - 1:
+            return None
+        if row >= max_row:
+            return None
+        nxt = (row + 1) * cols + col
+        if nxt < n:
+            return nxt
+        # Short last row: no tile in this column — take rightmost tile on row below.
+        fallback = min(n - 1, (row + 1) * cols + (cols - 1))
+        return fallback if fallback > local else None
+
+    def _tile_above(local, row, col, cols, n):
+        if row <= 0:
+            return None
+        nxt = (row - 1) * cols + col
+        if nxt < n:
+            return nxt
+        fallback = (row - 1) * cols + min(cols - 1, n - 1 - (row - 1) * cols)
+        return fallback if fallback < local else None
 
     def tile_move(dx, dy):
         nonlocal tile_pick, tile_snap_scroll
@@ -1371,75 +1441,42 @@ def run_launcher():
         max_row = (n - 1) // cols
 
         if dy < 0:
-            if row > 0:
-                local = (row - 1) * cols + col
+            above = _tile_above(local, row, col, cols, n)
+            if above is not None:
+                local = above
             elif sec_i > 0:
-                for prev in range(sec_i - 1, -1, -1):
-                    pg = tile_sections[prev]["games"]
-                    if not pg:
-                        continue
-                    prow = (len(pg) - 1) // cols
-                    local = prow * cols + min(col, len(pg) - 1 - prow * cols)
-                    sec_i = prev
-                    break
-                else:
-                    return
+                sec_i, local = _tile_step_section(sec_i, -1, col)
             else:
                 return
         elif dy > 0:
-            if row < max_row:
-                nxt = (row + 1) * cols + col
-                if nxt < n:
-                    local = nxt
-                else:
-                    return
+            below = _tile_below(local, row, col, cols, n, max_row)
+            if below is not None:
+                local = below
             else:
-                moved = False
-                for nxt in range(sec_i + 1, len(tile_sections)):
-                    ng = tile_sections[nxt]["games"]
-                    if not ng:
-                        continue
-                    local = min(col, len(ng) - 1)
-                    sec_i = nxt
-                    moved = True
-                    break
-                if not moved:
+                new_sec, new_local = _tile_step_section(sec_i, 1, col)
+                if new_sec == sec_i and tile_sections[sec_i]["games"]:
                     return
+                sec_i, local = new_sec, new_local
         if dx < 0:
             if col > 0:
                 local = row * cols + (col - 1)
             elif row > 0:
                 local = (row - 1) * cols + min(cols - 1, n - 1 - (row - 1) * cols)
             elif sec_i > 0:
-                for prev in range(sec_i - 1, -1, -1):
-                    pg = tile_sections[prev]["games"]
-                    if not pg:
-                        continue
-                    prow = (len(pg) - 1) // cols
-                    plocal = prow * cols + min(cols - 1, len(pg) - 1 - prow * cols)
-                    sec_i, local = prev, plocal
-                    break
-                else:
-                    return
+                sec_i, local = _tile_step_section(sec_i, -1, col)
             else:
                 return
         elif dx > 0:
             if col < cols - 1 and row * cols + col + 1 < n:
                 local = row * cols + col + 1
             elif row < max_row:
-                local = (row + 1) * cols
-                if local >= n:
-                    local = n - 1
-            elif sec_i + 1 < len(tile_sections):
-                for nxt in range(sec_i + 1, len(tile_sections)):
-                    ng = tile_sections[nxt]["games"]
-                    if ng:
-                        sec_i, local = nxt, 0
-                        break
-                else:
-                    return
+                nxt = (row + 1) * cols
+                local = min(n - 1, nxt)
             else:
-                return
+                new_sec, new_local = _tile_step_section(sec_i, 1, col)
+                if new_sec == sec_i:
+                    return
+                sec_i, local = new_sec, new_local
 
         if local >= n:
             local = n - 1
@@ -1457,6 +1494,22 @@ def run_launcher():
             min(tile_max_scroll_y(), tile_scroll_y + delta_pages * step),
         )
         tile_snap_scroll = False
+
+    def tile_section_jump(delta):
+        """LB/RB on first tile of a section: jump to first tile of prev/next library."""
+        nonlocal tile_pick, tile_scroll_y, tile_snap_scroll
+        if not tile_sections or delta == 0:
+            return
+        sec_i, _local = _tile_pick_location(tile_pick)
+        nsec = len(tile_sections)
+        for _ in range(nsec):
+            sec_i = (sec_i + delta) % nsec
+            if tile_sections[sec_i]["games"]:
+                break
+        tile_pick = _global_pick(sec_i, 0)
+        tile_scroll_y = _section_header_y_for_pick(tile_pick)
+        tile_snap_scroll = True
+        _tile_snap_scroll()
 
     def get_selected_item():
         if ui_mode == "tiles":
@@ -1485,7 +1538,14 @@ def run_launcher():
             page_scroll(delta)
 
     def nav_lb_rb(delta):
-        nav_page(delta)
+        if ui_mode == "tiles":
+            _sec_i, local = _tile_pick_location(tile_pick)
+            if local == 0:
+                tile_section_jump(delta)
+            else:
+                tile_page_scroll(delta)
+        else:
+            page_scroll(delta)
 
     def _truncate_to_width(font, text, max_w):
         t = (text or "").strip() or "Untitled"
@@ -1502,59 +1562,79 @@ def run_launcher():
         if not tile_sections:
             return
         g = tile_selected_game()
-        gname = g.get("name", "Untitled") if g else ""
+        gname = _tile_selection_title(g)
         tg = tile_geom
         sm = tg["side_margin"]
-        gap = tg["gap"]
         tw, th = tg["tile_w"], tg["tile_h"]
 
-        hero_y = tg["top_banner"]
-        hero_side = min(tg["hero_h"], w - 2 * sm)
-        hero_w = hero_h = hero_side
-        if g:
-            hero_img = cover_cache.get(g, hero_w, hero_h - 4)
-            if hero_img:
-                screen.blit(hero_img, (sm, hero_y))
-            name_x = sm + hero_w + gap
-            name_w = w - name_x - sm
-        else:
-            name_x = sm
-            name_w = w - 2 * sm
-        title_surf = font_title.render(_truncate_to_width(font_title, gname, name_w), True, text_color)
-        screen.blit(title_surf, (name_x, hero_y + (hero_h - title_surf.get_height()) // 2))
+        title_y = tg["top_banner"]
+        title_surf = font_title.render(
+            _truncate_to_width(font_title, gname, w - 2 * sm), True, text_color
+        )
+        screen.blit(title_surf, (sm, title_y))
 
         grid_y0 = tg["grid_top"]
         prev_clip = screen.get_clip()
-        screen.set_clip(pygame.Rect(0, grid_y0, w, tg["grid_h"]))
+        clip_rect = pygame.Rect(0, grid_y0, w, tg["grid_h"])
+        screen.set_clip(clip_rect)
         try:
             for ent in tile_layout:
+                if ent["kind"] != "tile":
+                    continue
+                sy = grid_y0 + ent["y"] - tile_scroll_y
+                eh = ent["h"] + font_hint.get_linesize() + 8
+                if sy + eh < grid_y0 or sy > grid_y0 + tg["grid_h"]:
+                    continue
+                x, y = ent["x"], sy
+                game = ent["game"]
+                img = cover_cache.get(game, tw, th)
+                if img:
+                    screen.blit(img, (x, y))
+                else:
+                    pygame.draw.rect(screen, (50, 50, 60), (x, y, tw, th))
+                label = _truncate_to_width(font_hint, game.get("name", ""), tw)
+                lbl = font_hint.render(label, True, text_color)
+                screen.blit(lbl, (x, y + th + 2))
+
+            # Section titles above tiles (covers are drawn first).
+            for ent in tile_layout:
+                if ent["kind"] not in ("header", "empty"):
+                    continue
                 sy = grid_y0 + ent["y"] - tile_scroll_y
                 if ent["kind"] == "header":
                     if sy + tg["section_header_h"] < grid_y0 or sy > grid_y0 + tg["grid_h"]:
                         continue
                     text = font_category.render(ent["title"], True, title_color)
                     screen.blit(text, (sm, sy))
-                elif ent["kind"] == "empty":
+                else:
                     if sy + font_hint.get_linesize() < grid_y0 or sy > grid_y0 + tg["grid_h"]:
                         continue
                     msg = font_hint.render("(no games)", True, title_color)
                     screen.blit(msg, (sm + 8, sy))
-                elif ent["kind"] == "tile":
-                    eh = ent["h"] + font_hint.get_linesize() + 8
-                    if sy + eh < grid_y0 or sy > grid_y0 + tg["grid_h"]:
-                        continue
-                    x, y = ent["x"], sy
-                    game = ent["game"]
-                    img = cover_cache.get(game, tw, th)
-                    if img:
-                        screen.blit(img, (x, y))
-                    else:
-                        pygame.draw.rect(screen, (50, 50, 60), (x, y, tw, th))
-                    if ent["game_index"] == tile_pick:
-                        pygame.draw.rect(screen, highlight_color, (x - 3, y - 3, tw + 6, th + 6), 3)
-                    label = _truncate_to_width(font_hint, game.get("name", ""), tw)
-                    lbl = font_hint.render(label, True, text_color)
-                    screen.blit(lbl, (x, y + th + 2))
+
+            # Selection frame on top (no upward bleed into category title).
+            sel_ent = _tile_entry_for_pick(tile_pick)
+            if sel_ent:
+                sy = grid_y0 + sel_ent["y"] - tile_scroll_y
+                x = sel_ent["x"]
+                th_sel = sel_ent["h"]
+                tw_sel = sel_ent["w"]
+                eh = th_sel + font_hint.get_linesize() + 8
+                if not (sy + eh < grid_y0 or sy > grid_y0 + tg["grid_h"]):
+                    sel_pad = max(5, min(10, tw_sel // 12))
+                    sel_bw = max(5, min(8, tw_sel // 20))
+                    pad_top = 2 if sel_ent.get("first_row") else sel_pad
+                    pygame.draw.rect(
+                        screen,
+                        highlight_color,
+                        (
+                            x - sel_pad,
+                            sy - pad_top,
+                            tw_sel + 2 * sel_pad,
+                            th_sel + pad_top + sel_pad,
+                        ),
+                        sel_bw,
+                    )
         finally:
             screen.set_clip(prev_clip)
 
@@ -1670,7 +1750,7 @@ def run_launcher():
         theme = _theme_from_config(config)
         theme_section = config.get("theme") or {}
         ui_mode = _ui_mode_from_theme(theme_section)
-        tile_scale = _parse_tile_scale(theme_section.get("tile_scale"), 2.0)
+        tile_scale = _parse_tile_scale(theme_section.get("tile_scale"), _TILE_SCALE_DEFAULT)
         bg_color = theme["background"]
         text_color = theme["text"]
         highlight_color = theme["cursor"]

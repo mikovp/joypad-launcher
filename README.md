@@ -74,7 +74,7 @@ In `theme` you can set colors (`#RRGGBB`), font sizes, and `background_image`:
 | `font_size_list`     | List font size (default 28)     |
 | `background_image`   | Custom background image path   |
 | `ui_mode`            | `list` or `tiles` (also in Settings) |
-| `tile_scale`         | Tile size in tiles mode: `0.75`–`2.5` (default `2`) |
+| `tile_scale`         | Tile size in tiles mode: `1`–`9` in 10 steps (default `2.5`) |
 | `covers_folder`      | Folder for custom covers (default `covers`) |
 | `cdn_covers`         | Download missing art to disk cache (default on) |
 | `cdn_cache_folder`   | CDN cache directory (default `cover_cdn_cache`) |
