@@ -36,6 +36,10 @@
     1151340,
     230410
   ],
+  "input_remap": {
+    "profiles_dir": "input_profiles"
+  },
+  "input_remap_games": {},
   "ddcci": {
     "power_off_on_start": false,
     "delay_ms": 2000,

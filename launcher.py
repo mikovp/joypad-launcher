@@ -349,6 +349,8 @@ def build_settings_menu(config):
         items.append({"kind": "header", "title": section_title})
         for key, label in rows:
             items.append({"kind": "setting", "key": key, "label": label})
+    items.append({"kind": "header", "title": "Controller"})
+    items.append({"kind": "action", "key": "input_remap_open", "label": "Controller mapping…"})
     items.append({"kind": "action", "key": "back", "label": "Back"})
     return items
 
@@ -815,10 +817,12 @@ def _yield_for_game_window(seconds=2.0):
         time.sleep(seconds / steps)
 
 
-def _wait_for_game_and_restore(process, hwnd, platform=None):
+def _wait_for_game_and_restore(process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None):
     """Waits for game process to finish, then brings launcher to foreground.
 
-    For Epic we wait for the game process to exit.
+    For Epic we wait until the game exe is fully gone (survives in-game restart).
+    When a remap worker is running, the launcher follows the worker lifetime instead
+    (the worker tracks the session with gamepad activity + process watch).
     For Steam we wait until Steam process has no child processes (game exited),
     so we do not hang while Steam client is open.
     """
@@ -838,8 +842,21 @@ def _wait_for_game_and_restore(process, hwnd, platform=None):
             if not child_pids:
                 break
             time.sleep(0.5)
+    elif remap_proc and sys.platform == "win32":
+        while remap_proc.poll() is None:
+            pygame.event.pump()
+            time.sleep(0.5)
+    elif platform == "epic" and (watch_exe or watch_dir) and sys.platform == "win32":
+        from input_remap import wait_for_game_exe_exit
+
+        wait_for_game_exe_exit(
+            watch_exe,
+            root_pid=process.pid,
+            watch_dir=watch_dir,
+            pump=lambda: pygame.event.pump(),
+        )
     else:
-        # Normal process wait (Epic and others)
+        # Normal process wait (Epic without exe hint, NSP, etc.)
         while process.poll() is None:
             pygame.event.pump()
             time.sleep(0.5)
@@ -1652,6 +1669,7 @@ def run_launcher():
     system_menu_items = [
         {"key": "resume", "label": "Resume"},
         {"key": "settings", "label": "Settings"},
+        {"key": "input_remap_open", "label": "Controller mapping"},
         {"key": "exit", "label": "Exit launcher"},
         {"key": "shutdown", "label": "Shut down PC"},
         {"key": "reboot", "label": "Reboot PC"},
@@ -1663,6 +1681,7 @@ def run_launcher():
     overlay_menu = None
     overlay_index = 0
     overlay_scroll_y = 0
+    input_remap_session = None
 
     def _settings_first_row():
         for i, it in enumerate(settings_menu_items):
@@ -1810,7 +1829,7 @@ def run_launcher():
             overlay_index = 0
 
     def overlay_confirm():
-        nonlocal overlay_menu, overlay_index, overlay_scroll_y, running
+        nonlocal overlay_menu, overlay_index, overlay_scroll_y, running, input_remap_session
         if overlay_menu == "system":
             item = system_menu_items[overlay_index]
             key = item["key"]
@@ -1822,6 +1841,20 @@ def run_launcher():
                 overlay_index = _settings_first_row()
                 overlay_scroll_y = 0
                 rebuild_settings_layout()
+            elif key == "input_remap_open":
+                from input_remap_editor import InputRemapSession
+
+                overlay_menu = None
+                overlay_index = 0
+                input_remap_session = InputRemapSession(
+                    screen,
+                    (font_title, font_list, font_hint),
+                    (bg_color, text_color, highlight_color, title_color),
+                    config,
+                    games,
+                    _BASE_DIR,
+                    save_config,
+                )
             elif key == "exit":
                 running = False
             elif key == "shutdown":
@@ -1837,6 +1870,20 @@ def run_launcher():
             key = item.get("key")
             if key == "back":
                 overlay_back()
+            elif key == "input_remap_open":
+                from input_remap_editor import InputRemapSession
+
+                overlay_menu = None
+                overlay_index = 0
+                input_remap_session = InputRemapSession(
+                    screen,
+                    (font_title, font_list, font_hint),
+                    (bg_color, text_color, highlight_color, title_color),
+                    config,
+                    games,
+                    _BASE_DIR,
+                    save_config,
+                )
             elif apply_setting_toggle(config, key):
                 apply_setting_live(key)
 
@@ -1844,12 +1891,36 @@ def run_launcher():
     running = True
     trig_page_arm_lt = True
     trig_page_arm_rt = True
+    active_remap_proc = [None]
+
+    def stop_active_remap():
+        if active_remap_proc[0]:
+            from input_remap import stop_remap_worker
+
+            stop_remap_worker(active_remap_proc[0])
+            active_remap_proc[0] = None
+
+    import atexit
+
+    atexit.register(stop_active_remap)
 
     def try_launch_game(g):
         """Launches game g. Returns (exit_launcher, axis_held) or None on skip."""
+        from input_remap import resolve_profile_path, start_remap_worker, stop_remap_worker
+
         platform = g.get("platform")
         process = None
         skip_restore = False
+        remap_proc = None
+        profile_path = resolve_profile_path(config, g, _BASE_DIR) if sys.platform == "win32" else None
+        if sys.platform == "win32":
+            from input_remap import init_remap_log, remap_log, game_remap_key
+
+            init_remap_log(_BASE_DIR)
+            remap_log(
+                "launch %s key=%s profile=%s"
+                % (g.get("name"), game_remap_key(g), profile_path or "(none)")
+            )
         if platform == "steam":
             if not steam_path:
                 if not overlay_menu:
@@ -1898,21 +1969,40 @@ def run_launcher():
             return None
         if not process:
             return None
-        _yield_for_game_window(2.0)
-        if process and platform == "epic":
-            _bring_game_to_foreground(process, 12)
-        elif process and platform == "steam":
-            _bring_game_to_foreground(process, 20)
-        elif process and platform == "nsp":
-            _bring_game_to_foreground(process, 12)
-        elif process:
-            _bring_process_window_to_foreground(process.pid)
-            _yield_for_game_window(0.5)
-            _bring_process_window_to_foreground(process.pid)
-        _send_launcher_to_back(hwnd)
-        pygame.display.iconify()
-        if not skip_restore:
-            _wait_for_game_and_restore(process, hwnd, platform)
+        from input_remap import game_watch_targets
+
+        watch_exe, watch_dir = game_watch_targets(g)
+        if profile_path:
+            remap_proc = start_remap_worker(
+                profile_path,
+                process.pid,
+                _BASE_DIR,
+                watch_exe=watch_exe,
+                watch_dir=watch_dir,
+                parent_pid=os.getpid(),
+            )
+            active_remap_proc[0] = remap_proc
+        try:
+            _yield_for_game_window(2.0)
+            if process and platform == "epic":
+                _bring_game_to_foreground(process, 12)
+            elif process and platform == "steam":
+                _bring_game_to_foreground(process, 20)
+            elif process and platform == "nsp":
+                _bring_game_to_foreground(process, 12)
+            elif process:
+                _bring_process_window_to_foreground(process.pid)
+                _yield_for_game_window(0.5)
+                _bring_process_window_to_foreground(process.pid)
+            _send_launcher_to_back(hwnd)
+            pygame.display.iconify()
+            if not skip_restore:
+                _wait_for_game_and_restore(
+                    process, hwnd, platform, watch_exe=watch_exe, watch_dir=watch_dir, remap_proc=remap_proc
+                )
+        finally:
+            stop_remap_worker(remap_proc)
+            active_remap_proc[0] = None
         return (False, 15)
 
     title_surface, hint_surface = _hint_surfaces()
@@ -1974,6 +2064,36 @@ def run_launcher():
             events = pygame.event.get()
         except (KeyError, SystemError):
             events = []
+
+        if input_remap_session:
+            for event in events:
+                if event.type == pygame.QUIT:
+                    running = False
+            input_remap_session.process_events(events)
+            if axis_held <= 0 and joysticks:
+                stick = joysticks[0]
+                y = stick.get_axis(AXIS_LEFT_Y)
+                x = stick.get_axis(AXIS_LEFT_X)
+                if y < -DEADZONE:
+                    input_remap_session._nav(-1)
+                    axis_held = AXIS_REPEAT_FRAMES
+                elif y > DEADZONE:
+                    input_remap_session._nav(1)
+                    axis_held = AXIS_REPEAT_FRAMES
+                elif input_remap_session.mode == "editor" and x < -DEADZONE:
+                    input_remap_session._nav_h(-1)
+                    axis_held = AXIS_REPEAT_FRAMES
+                elif input_remap_session.mode == "editor" and x > DEADZONE:
+                    input_remap_session._nav_h(1)
+                    axis_held = AXIS_REPEAT_FRAMES
+            if axis_held > 0:
+                axis_held -= 1
+            input_remap_session.draw()
+            pygame.display.flip()
+            clock.tick(60)
+            if input_remap_session.finished:
+                input_remap_session = None
+            continue
 
         for event in events:
             if event.type == pygame.QUIT:
@@ -2277,6 +2397,7 @@ def run_launcher():
         pygame.display.flip()
         clock.tick(60)
 
+    stop_active_remap()
     pygame.quit()
 
 
@@ -2291,6 +2412,11 @@ def _show_error_message(message):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "--input-remap-worker":
+        from input_remap import run_remap_worker_main
+
+        run_remap_worker_main()
+        sys.exit(0)
     try:
         run_launcher()
     except BaseException:

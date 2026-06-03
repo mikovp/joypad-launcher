@@ -1,0 +1,57 @@
+{
+  "name": "Escape from Duckov",
+  "left_stick": "wasd",
+  "right_stick": "mouse",
+  "deadzone": 0.25,
+  "mouse_sensitivity": 7.0,
+  "mouse_scale": 1.6,
+  "mouse_method": "both",
+  "keyboard_method": "scancode",
+  "buttons": {
+    "a": "f",
+    "b": "escape",
+    "x": "e",
+    "y": "t",
+    "lb": "1",
+    "rb": "2",
+    "back": "none",
+    "start": "none"
+  },
+  "button_holds": {
+    "b": {
+      "hold": "tab",
+      "hold_ms": 450
+    }
+  },
+  "triggers": {
+    "left": "mouse_right",
+    "right": "mouse_left"
+  },
+  "dpad": {
+    "dpad_up": "mouse_wheel_up",
+    "dpad_down": "mouse_wheel_down",
+    "dpad_left": "m",
+    "dpad_right": "i"
+  },
+  "stick_clicks": {
+    "left": {
+      "binding": "shift",
+      "mode": "toggle"
+    },
+    "right": "v"
+  },
+  "chords": {
+    "lb": {
+      "a": "3",
+      "b": "4",
+      "x": "none",
+      "y": "none"
+    },
+    "rb": {
+      "a": "5",
+      "b": "6",
+      "x": "7",
+      "y": "8"
+    }
+  }
+}

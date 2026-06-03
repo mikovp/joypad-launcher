@@ -1,0 +1,49 @@
+{
+  "name": "WASD + mouse (default)",
+  "left_stick": "wasd",
+  "right_stick": "mouse",
+  "deadzone": 0.25,
+  "mouse_sensitivity": 10.0,
+  "mouse_scale": 2.5,
+  "mouse_method": "both",
+  "keyboard_method": "scancode",
+  "buttons": {
+    "a": "space",
+    "b": "escape",
+    "x": "e",
+    "y": "r",
+    "lb": "none",
+    "rb": "none",
+    "back": "none",
+    "start": "none"
+  },
+  "button_holds": {},
+  "triggers": {
+    "left": "mouse_left",
+    "right": "mouse_right"
+  },
+  "dpad": {
+    "dpad_up": "none",
+    "dpad_down": "none",
+    "dpad_left": "none",
+    "dpad_right": "none"
+  },
+  "stick_clicks": {
+    "left": "none",
+    "right": "none"
+  },
+  "chords": {
+    "lb": {
+      "a": "none",
+      "b": "none",
+      "x": "none",
+      "y": "none"
+    },
+    "rb": {
+      "a": "none",
+      "b": "none",
+      "x": "none",
+      "y": "none"
+    }
+  }
+}
