@@ -5,6 +5,8 @@
   "deadzone": 0.25,
   "mouse_sensitivity": 10.0,
   "mouse_scale": 2.5,
+  "mouse_acceleration": 0.0,
+  "mouse_accel_off_lt": false,
   "mouse_method": "both",
   "keyboard_method": "scancode",
   "invert_left_y": false,

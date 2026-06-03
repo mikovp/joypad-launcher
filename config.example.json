@@ -37,7 +37,8 @@
     230410
   ],
   "input_remap": {
-    "profiles_dir": "input_profiles"
+    "profiles_dir": "input_profiles",
+    "log": false
   },
   "input_remap_games": {},
   "ddcci": {

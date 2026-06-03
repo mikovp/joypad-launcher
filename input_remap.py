@@ -4,6 +4,7 @@
 
 import copy
 import json
+import math
 import os
 import subprocess
 import sys
@@ -582,13 +583,20 @@ def suggest_profile_id(game):
     return slug[:32] or "profile"
 
 
+def remap_log_enabled(config):
+    return bool(remap_settings(config).get("log", False))
+
+
 def remap_log_path(base_dir):
     return os.path.join(base_dir or ".", REMAP_LOG_NAME)
 
 
-def init_remap_log(base_dir):
+def init_remap_log(base_dir, enabled=True):
     """Append-only log next to launcher for remap worker diagnostics."""
     global _remap_log_path
+    if not enabled:
+        _remap_log_path = None
+        return
     path = remap_log_path(base_dir)
     _remap_log_path = path
     try:
@@ -890,6 +898,8 @@ if sys.platform == "win32":
             self.deadzone = float(profile["deadzone"])
             self.mouse_sens = float(profile["mouse_sensitivity"])
             self.mouse_scale = float(profile["mouse_scale"])
+            self.mouse_accel = float(profile.get("mouse_acceleration", 0.0))
+            self.mouse_accel_off_lt = bool(profile.get("mouse_accel_off_lt", False))
             self.mouse_method = str(profile["mouse_method"]).lower()
             self.keyboard_method = str(profile["keyboard_method"]).lower()
             self.button_holds = profile.get("button_holds") or {}
@@ -1063,6 +1073,15 @@ if sys.platform == "win32":
 
             return resolved, lb_chord_active, rb_chord_active
 
+        def _mouse_accel_multiplier(self, rx, ry, lt_pressed):
+            """Boost gain at larger stick deflection; optional linear mode when LT held."""
+            if self.mouse_accel <= 0:
+                return 1.0
+            if self.mouse_accel_off_lt and lt_pressed:
+                return 1.0
+            mag = min(1.0, math.hypot(rx, ry))
+            return 1.0 + self.mouse_accel * (mag * mag)
+
         def tick(self, pad):
             if pad is None:
                 self.release_all()
@@ -1082,10 +1101,12 @@ if sys.platform == "win32":
             right_mode = self.profile.get("right_stick") or "none"
             self._last_rx = rx
             self._last_ry = ry
+            lt_pressed = pad.bLeftTrigger >= TRIGGER_THRESHOLD
             if right_mode == "mouse":
                 gain = self.mouse_sens * self.mouse_scale
-                self._mouse_acc_x += rx * gain
-                self._mouse_acc_y += -ry * gain
+                accel_mult = self._mouse_accel_multiplier(rx, ry, lt_pressed)
+                self._mouse_acc_x += rx * gain * accel_mult
+                self._mouse_acc_y += -ry * gain * accel_mult
                 dx = int(round(self._mouse_acc_x))
                 dy = int(round(self._mouse_acc_y))
                 if dx:
@@ -1430,11 +1451,12 @@ if sys.platform == "win32":
         user_index=0,
         poll_ms=8,
         log_dir=None,
+        log_enabled=False,
         watch_exe=None,
         watch_dir=None,
         parent_pid=None,
     ):
-        if log_dir:
+        if log_enabled and log_dir:
             init_remap_log(log_dir)
         remap_log(
             "worker start profile=%s watch_pid=%s xinput_index=%s"
@@ -1568,11 +1590,12 @@ else:
         return False
 
 
-def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe=None, watch_dir=None, parent_pid=None):
+def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe=None, watch_dir=None, parent_pid=None, log_enabled=False):
     """Start remapping subprocess; returns Popen or None."""
     if sys.platform != "win32" or not profile_path or not root_pid:
-        init_remap_log(base_dir or ".")
-        remap_log("start_remap_worker skipped platform=%s profile=%s pid=%s" % (sys.platform, profile_path, root_pid))
+        if log_enabled:
+            init_remap_log(base_dir or ".", enabled=True)
+            remap_log("start_remap_worker skipped platform=%s profile=%s pid=%s" % (sys.platform, profile_path, root_pid))
         return None
     log_dir = os.path.abspath(base_dir or ".")
     launcher_pid = int(parent_pid or os.getpid())
@@ -1593,12 +1616,15 @@ def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe
         worker_args.extend(["--watch-exe", watch_exe])
     if watch_dir:
         worker_args.extend(["--watch-dir", os.path.abspath(watch_dir)])
+    if log_enabled:
+        worker_args.append("--log")
     if getattr(sys, "frozen", False):
         cmd = [sys.executable] + worker_args
     else:
         cmd = [sys.executable, os.path.join(base_dir, "launcher.py")] + worker_args
     try:
-        init_remap_log(log_dir)
+        if log_enabled:
+            init_remap_log(log_dir, enabled=True)
         proc = subprocess.Popen(
             cmd,
             shell=False,
@@ -1610,8 +1636,9 @@ def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe
         remap_log("cmd: %s" % " ".join('"%s"' % c if " " in c else c for c in cmd))
         return proc
     except Exception as exc:
-        init_remap_log(log_dir)
-        remap_log("ERROR spawn worker: %s" % exc)
+        if log_enabled:
+            init_remap_log(log_dir, enabled=True)
+            remap_log("ERROR spawn worker: %s" % exc)
         return None
 
 
@@ -1656,6 +1683,7 @@ def run_remap_worker_main(argv=None):
     parser.add_argument("--pid", type=int, required=True)
     parser.add_argument("--index", type=int, default=0)
     parser.add_argument("--log-dir", default=".")
+    parser.add_argument("--log", action="store_true")
     parser.add_argument("--watch-exe", default="")
     parser.add_argument("--watch-dir", default="")
     parser.add_argument("--parent-pid", type=int, default=0)
@@ -1665,6 +1693,7 @@ def run_remap_worker_main(argv=None):
         args.pid,
         user_index=args.index,
         log_dir=args.log_dir,
+        log_enabled=args.log,
         watch_exe=args.watch_exe or None,
         watch_dir=args.watch_dir or None,
         parent_pid=args.parent_pid or None,

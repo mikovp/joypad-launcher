@@ -97,18 +97,22 @@ EDITOR_NAV_ORDER = [
     ("mouse_sens", None, "Mouse speed"),
     ("mouse_scale", None, "Mouse scale"),
     ("deadzone", None, "Deadzone"),
+    ("mouse_accel", None, "Mouse accel"),
+    ("mouse_accel_off_lt", None, "Accel off LT"),
 ]
 
-NUMERIC_SLOT_KINDS = ("mouse_sens", "mouse_scale", "deadzone")
+NUMERIC_SLOT_KINDS = ("mouse_sens", "mouse_scale", "deadzone", "mouse_accel")
 NUMERIC_SLOT_STEPS = {
     "mouse_sens": ("mouse_sensitivity", 0.1, 0.1, 50.0),
     "mouse_scale": ("mouse_scale", 0.1, 0.1, 10.0),
     "deadzone": ("deadzone", 0.01, 0.0, 1.0),
+    "mouse_accel": ("mouse_acceleration", 0.05, 0.0, 2.0),
 }
+BOOL_SLOT_KINDS = ("mouse_accel_off_lt",)
 
 
 def _round_numeric(kind, value):
-    if kind == "deadzone":
+    if kind in ("deadzone", "mouse_accel"):
         return round(float(value), 2)
     return round(float(value), 1)
 
@@ -156,6 +160,10 @@ def build_editor_slots(profile):
             return profile["mouse_scale"]
         if kind == "deadzone":
             return profile["deadzone"]
+        if kind == "mouse_accel":
+            return profile.get("mouse_acceleration", 0.0)
+        if kind == "mouse_accel_off_lt":
+            return bool(profile.get("mouse_accel_off_lt", False))
         return "none"
 
     slots = []
@@ -196,6 +204,10 @@ def _apply_slot_value(profile, slot, value):
         profile["mouse_scale"] = value
     elif slot["kind"] == "deadzone":
         profile["deadzone"] = value
+    elif slot["kind"] == "mouse_accel":
+        profile["mouse_acceleration"] = value
+    elif slot["kind"] == "mouse_accel_off_lt":
+        profile["mouse_accel_off_lt"] = bool(value)
 
 
 def _cycle_slot(profile, slot):
@@ -334,6 +346,10 @@ def _slot_display(slot):
         return "%.1f" % float(val)
     if kind == "deadzone":
         return "%.2f" % float(val)
+    if kind == "mouse_accel":
+        return "%.2f" % float(val)
+    if kind == "mouse_accel_off_lt":
+        return "On" if val else "Off"
     return binding_label(val)
 
 
@@ -531,7 +547,7 @@ class InputRemapSession:
         [5, 6, 7, 8],
         [12, 13],
         list(range(14, 26)),
-        [26, 27, 28],
+        [26, 27, 28, 29, 30],
     )
 
     def _editor_h_group(self, slot_index):
@@ -673,6 +689,8 @@ class InputRemapSession:
         slot = self.slots[self.slot_index]
         if slot["kind"] in NUMERIC_SLOT_KINDS:
             new_val = _adjust_numeric_slot(self.profile, slot, 1)
+        elif slot["kind"] in BOOL_SLOT_KINDS:
+            new_val = not bool(slot["value"])
         else:
             new_val = _cycle_slot(self.profile, slot)
         slot["value"] = new_val
@@ -683,6 +701,12 @@ class InputRemapSession:
         slot = self.slots[self.slot_index]
         if slot["kind"] in NUMERIC_SLOT_KINDS:
             new_val = _adjust_numeric_slot(self.profile, slot, -1)
+            slot["value"] = new_val
+            _apply_slot_value(self.profile, slot, new_val)
+            save_profile(self.profile_path, self.profile)
+            return
+        if slot["kind"] in BOOL_SLOT_KINDS:
+            new_val = False
             slot["value"] = new_val
             _apply_slot_value(self.profile, slot, new_val)
             save_profile(self.profile_path, self.profile)
@@ -762,7 +786,7 @@ class InputRemapSession:
         footer_h = 36
         line_h = self.font_list.get_linesize() + 5
         face_line_h = self.font_list.get_linesize() + 2
-        settings_band = line_h + 12
+        settings_band = line_h * 2 + 18
         body_h = h - header_h - footer_h
         pad_h = max(120, int(body_h * 0.41))
         grid_h = body_h - pad_h - 8
@@ -1019,13 +1043,23 @@ class InputRemapSession:
         ms = _slot_index(self.slots, "mouse_sens")
         msc = _slot_index(self.slots, "mouse_scale")
         dz = _slot_index(self.slots, "deadzone")
+        ma = _slot_index(self.slots, "mouse_accel")
+        maolt = _slot_index(self.slots, "mouse_accel_off_lt")
         setting_w = w // 3 - 24
+        setting_w2 = w // 2 - 24
+        settings_row2_y = settings_y + line_h + 6
         if ms is not None:
             self._draw_grid_row(x0 + 12, settings_y, setting_w, line_h, "Mouse speed", ms)
         if msc is not None:
             self._draw_grid_row(x0 + w // 3 + 12, settings_y, setting_w, line_h, "Mouse scale", msc)
         if dz is not None:
             self._draw_grid_row(x0 + 2 * w // 3 + 12, settings_y, setting_w, line_h, "Deadzone", dz)
+        if ma is not None:
+            self._draw_grid_row(x0 + 12, settings_row2_y, setting_w2, line_h, "Mouse accel", ma)
+        if maolt is not None:
+            self._draw_grid_row(
+                x0 + w // 2 + 12, settings_row2_y, setting_w2, line_h, "Accel off LT", maolt
+            )
 
     def _draw_grid_row(self, x, y, w, h, label, slot_i, badge_color=None):
         slot = self.slots[slot_i]

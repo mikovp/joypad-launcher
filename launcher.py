@@ -311,6 +311,7 @@ def _nsp_association_on(config):
 def build_settings_menu(config):
     """Settings menu rows with category headers (kind: header | setting | action)."""
     ddcci = config.get("ddcci") or {}
+    remap = config.get("input_remap") or {}
     theme = config.get("theme") or {}
     delay = int(ddcci.get("delay_ms", 2000))
     scale = float(theme.get("font_scale", 1.0) or 1.0)
@@ -350,6 +351,13 @@ def build_settings_menu(config):
         for key, label in rows:
             items.append({"kind": "setting", "key": key, "label": label})
     items.append({"kind": "header", "title": "Controller"})
+    items.append(
+        {
+            "kind": "setting",
+            "key": "input_remap_log",
+            "label": "Remap log: %s" % _on_off(remap.get("log")),
+        }
+    )
     items.append({"kind": "action", "key": "input_remap_open", "label": "Controller mapping…"})
     items.append({"kind": "action", "key": "back", "label": "Back"})
     return items
@@ -427,6 +435,9 @@ def apply_setting_toggle(config, key):
     elif key == "ddcci_log":
         ddcci = config.setdefault("ddcci", {})
         ddcci["log"] = not bool(ddcci.get("log"))
+    elif key == "input_remap_log":
+        remap = config.setdefault("input_remap", {})
+        remap["log"] = not bool(remap.get("log"))
     else:
         return False
     save_config(config)
@@ -1914,13 +1925,14 @@ def run_launcher():
         remap_proc = None
         profile_path = resolve_profile_path(config, g, _BASE_DIR) if sys.platform == "win32" else None
         if sys.platform == "win32":
-            from input_remap import init_remap_log, remap_log, game_remap_key
+            from input_remap import init_remap_log, remap_log, remap_log_enabled, game_remap_key
 
-            init_remap_log(_BASE_DIR)
-            remap_log(
-                "launch %s key=%s profile=%s"
-                % (g.get("name"), game_remap_key(g), profile_path or "(none)")
-            )
+            if remap_log_enabled(config):
+                init_remap_log(_BASE_DIR, enabled=True)
+                remap_log(
+                    "launch %s key=%s profile=%s"
+                    % (g.get("name"), game_remap_key(g), profile_path or "(none)")
+                )
         if platform == "steam":
             if not steam_path:
                 if not overlay_menu:
@@ -1980,6 +1992,7 @@ def run_launcher():
                 watch_exe=watch_exe,
                 watch_dir=watch_dir,
                 parent_pid=os.getpid(),
+                log_enabled=remap_log_enabled(config),
             )
             active_remap_proc[0] = remap_proc
         try:
