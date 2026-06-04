@@ -76,3 +76,11 @@ module = [
     "joypad.input.watch",
 ]
 check_untyped_defs = true
+
+# ctypes.windll / WINFUNCTYPE exist only on Windows; CI runs mypy on Linux.
+[[tool.mypy.overrides]]
+module = [
+    "joypad.input.watch.win32.*",
+    "joypad.input.xinput.win32",
+]
+disable_error_code = ["attr-defined"]
