@@ -25,7 +25,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Packaging dist folder...
+if not exist dist\input_profiles mkdir dist\input_profiles
+xcopy /Y /Q input_profiles\*.json dist\input_profiles\ >nul
+if exist bg.jpg copy /Y bg.jpg dist\ >nul
+copy /Y config.example.json dist\ >nul
+if not exist dist\config.json (
+    copy /Y config.example.json dist\config.json >nul
+    echo Created dist\config.json from config.example.json — edit before first run.
+) else (
+    echo Kept existing dist\config.json
+)
+
 echo.
 echo Done: dist\JoypadLauncher.exe
-echo Copy config.json or config.example.json to dist folder.
+echo Config: dist\config.json  Profiles: dist\input_profiles\
 pause
