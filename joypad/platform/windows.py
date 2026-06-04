@@ -153,7 +153,7 @@ def _bring_process_window_to_foreground(pid):
         pass
 
 
-def _bring_game_to_foreground(process, attempts=12):
+def _bring_game_to_foreground(process, attempts=12, tick=None):
     """Switches focus to process window or its child processes.
     attempts: number of tries (12 ~ 6s for Epic, 20 ~ 10s for Steam).
     """
@@ -165,8 +165,7 @@ def _bring_game_to_foreground(process, attempts=12):
         for pid in pids:
             seen_pids.add(pid)
             _bring_process_window_to_foreground(pid)
-        pygame.event.pump()
-        time.sleep(0.5)
+        _sleep_with_spinner(0.5, tick=tick)
 
 
 def _bring_any_other_window_to_foreground(skip_hwnd):
@@ -214,15 +213,31 @@ def _bring_launcher_to_front(hwnd):
         pass
 
 
-def _yield_for_game_window(seconds=2.0):
+def _sleep_with_spinner(seconds, tick=None):
+    """Pause while pumping events; if tick is set, animate spinner at ~10 fps."""
+    pygame.event.pump()
+    if not tick:
+        time.sleep(seconds)
+        return
+    end = time.perf_counter() + seconds
+    while time.perf_counter() < end:
+        tick()
+        remaining = end - time.perf_counter()
+        if remaining > 0:
+            time.sleep(min(0.1, remaining))
+
+
+def _yield_for_game_window(seconds=2.0, tick=None):
     """Gives game time to create window and get focus (event processing + pause)."""
     steps = max(1, int(seconds * 10))
+    step_s = seconds / steps
     for _ in range(steps):
-        pygame.event.pump()
-        time.sleep(seconds / steps)
+        _sleep_with_spinner(step_s, tick=tick)
 
 
-def _wait_for_game_and_restore(process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None):
+def _wait_for_game_and_restore(
+    process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None, tick=None
+):
     """Waits for game process to finish, then brings launcher to foreground.
 
     For Epic we wait until the game exe is fully gone (survives in-game restart).
@@ -238,7 +253,6 @@ def _wait_for_game_and_restore(process, hwnd, platform=None, watch_exe=None, wat
         # Wait until steam.exe has no child processes (games),
         # so we do not hang while Steam client is open.
         while process.poll() is None:
-            pygame.event.pump()
             try:
                 pids = _get_process_and_descendant_pids(process.pid)
             except Exception:
@@ -246,25 +260,29 @@ def _wait_for_game_and_restore(process, hwnd, platform=None, watch_exe=None, wat
             child_pids = [p for p in pids if p != process.pid]
             if not child_pids:
                 break
-            time.sleep(0.5)
+            _sleep_with_spinner(0.5, tick=tick)
     elif remap_proc and sys.platform == "win32":
         while remap_proc.poll() is None:
-            pygame.event.pump()
-            time.sleep(0.5)
+            _sleep_with_spinner(0.5, tick=tick)
     elif platform == "epic" and (watch_exe or watch_dir) and sys.platform == "win32":
         from joypad.input.engine import wait_for_game_exe_exit
+
+        def _pump():
+            if tick:
+                tick()
+            else:
+                pygame.event.pump()
 
         wait_for_game_exe_exit(
             watch_exe,
             root_pid=process.pid,
             watch_dir=watch_dir,
-            pump=lambda: pygame.event.pump(),
+            pump=_pump,
         )
     else:
         # Normal process wait (Epic without exe hint, NSP, etc.)
         while process.poll() is None:
-            pygame.event.pump()
-            time.sleep(0.5)
+            _sleep_with_spinner(0.5, tick=tick)
 
     _bring_launcher_to_front(hwnd)
 

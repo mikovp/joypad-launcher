@@ -27,7 +27,8 @@
     },
     "b": {
       "hold": "tab",
-      "hold_ms": 450
+      "hold_ms": 450,
+      "center_cursor": true
     }
   },
   "triggers": {

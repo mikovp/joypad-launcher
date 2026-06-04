@@ -381,7 +381,7 @@ def run():
 
     atexit.register(stop_active_remap)
 
-    def try_launch_game(g):
+    def try_launch_game(g, spinner_tick=None):
         """Launches game g. Returns (exit_launcher, axis_held) or None on skip."""
         from joypad.input.profiles import resolve_profile_path
         from joypad.input.worker import start_remap_worker, stop_remap_worker
@@ -463,23 +463,29 @@ def run():
                 log_enabled=remap_log_enabled(config),
             )
             active_remap_proc[0] = remap_proc
+        tick = spinner_tick
         try:
-            _yield_for_game_window(2.0)
+            _yield_for_game_window(2.0, tick=tick)
             if process and platform == "epic":
-                _bring_game_to_foreground(process, 12)
+                _bring_game_to_foreground(process, 12, tick=tick)
             elif process and platform == "steam":
-                _bring_game_to_foreground(process, 20)
+                _bring_game_to_foreground(process, 20, tick=tick)
             elif process and platform == "nsp":
-                _bring_game_to_foreground(process, 12)
+                _bring_game_to_foreground(process, 12, tick=tick)
             elif process:
                 _bring_process_window_to_foreground(process.pid)
-                _yield_for_game_window(0.5)
+                _yield_for_game_window(0.5, tick=tick)
                 _bring_process_window_to_foreground(process.pid)
             _send_launcher_to_back(hwnd)
-            pygame.display.iconify()
             if not skip_restore:
                 _wait_for_game_and_restore(
-                    process, hwnd, platform, watch_exe=watch_exe, watch_dir=watch_dir, remap_proc=remap_proc
+                    process,
+                    hwnd,
+                    platform,
+                    watch_exe=watch_exe,
+                    watch_dir=watch_dir,
+                    remap_proc=remap_proc,
+                    tick=tick,
                 )
         finally:
             stop_remap_worker(remap_proc)
@@ -491,8 +497,17 @@ def run():
 
     state.title_surface, state.hint_surface = _hint_surfaces()
 
-    def show_launching_overlay(_game_name=None):
-        return ovl.show_launching_overlay(state, _game_name)
+    def begin_launching_overlay(_game_name=None):
+        return ovl.begin_launching_overlay(state, _game_name)
+
+    def _make_launch_spinner(saved, frame_ref):
+        if saved is None:
+            return None
+
+        def tick():
+            frame_ref[0] = ovl.tick_launching_spinner(state, saved, frame_ref[0], sleep=False)
+
+        return tick
 
     while state.running:
         frames_since_rescan += 1
@@ -571,9 +586,10 @@ def run():
                         if not it:
                             continue
                         g = it["game"]
+                        launch_saved, launch_frame = None, [0]
                         if g.get("platform") in ("steam", "epic", "nsp"):
-                            show_launching_overlay(g.get("name", "Game"))
-                        result = try_launch_game(g)
+                            launch_saved, launch_frame[0] = begin_launching_overlay(g.get("name", "Game"))
+                        result = try_launch_game(g, spinner_tick=_make_launch_spinner(launch_saved, launch_frame))
                         if result is not None:
                             should_exit, axis_held_val = result
                             if should_exit:
@@ -593,9 +609,10 @@ def run():
                         if not it:
                             continue
                         g = it["game"]
+                        launch_saved, launch_frame = None, [0]
                         if g.get("platform") in ("steam", "epic", "nsp"):
-                            show_launching_overlay(g.get("name", "Game"))
-                        result = try_launch_game(g)
+                            launch_saved, launch_frame[0] = begin_launching_overlay(g.get("name", "Game"))
+                        result = try_launch_game(g, spinner_tick=_make_launch_spinner(launch_saved, launch_frame))
                         if result is not None:
                             should_exit, axis_held_val = result
                             if should_exit:

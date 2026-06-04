@@ -210,6 +210,11 @@ if sys.platform == "win32":
         )
         _send_input(inp)
 
+    def _mouse_center_screen():
+        w = windll.user32.GetSystemMetrics(0)
+        h = windll.user32.GetSystemMetrics(1)
+        windll.user32.SetCursorPos(w // 2, h // 2)
+
     def _read_xinput(user_index=0):
         if not _xinput:
             return None
@@ -423,6 +428,8 @@ if sys.platform == "win32":
             else:
                 if state["mode"] == "waiting":
                     # Short tap: one-shot pulse, no key held during the wait.
+                    if hold_cfg.get("center_cursor"):
+                        _mouse_center_screen()
                     self._apply_digital(slot_id + "_tap", tap_binding, True)
                     self._apply_digital(slot_id + "_tap", tap_binding, False)
                 elif state["mode"] == "hold":
@@ -825,7 +832,7 @@ if sys.platform == "win32":
                 break
             if pump:
                 pump()
-            time.sleep(0.5)
+            time.sleep(0.1 if pump else 0.5)
 
     def _scan_xinput_indices():
         found = []
