@@ -1,5 +1,5 @@
-from joypad.ui import fonts as launcher
 from joypad.ui import fonts as jp_fonts
+from joypad.ui import fonts as launcher
 
 
 class FakeFont:
@@ -10,7 +10,7 @@ class FakeFont:
 
 def test_wrap_words_to_width_breaks_on_space():
     font = FakeFont()
-    lines = launcher._wrap_words_to_width(font, "aa bb cc", 50)  # 5 chars/line
+    lines = launcher.wrap_words_to_width(font, "aa bb cc", 50)  # 5 chars/line
     assert lines == ["aa bb", "cc"]
 
 
@@ -22,5 +22,5 @@ def test_hard_break_long_word():
 
 def test_fonts_module_direct_matches():
     font = FakeFont()
-    assert jp_fonts._wrap_words_to_width(font, "aa bb cc", 50) == ["aa bb", "cc"]
+    assert jp_fonts.wrap_words_to_width(font, "aa bb cc", 50) == ["aa bb", "cc"]
     assert jp_fonts._hard_break_word(font, "abcdef", 30) == ["abc", "def"]

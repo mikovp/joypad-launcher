@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Game categorization and tile/list data-structure helpers."""
 
 import os
@@ -52,7 +51,7 @@ def build_tile_sections(games):
     return [{"title": title, "games": lst} for title, lst in _game_sections(games)]
 
 
-def _tile_selection_title(game):
+def tile_selection_title(game):
     """One-line label above the grid (game name or .nsp filename)."""
     if not game:
         return "Untitled"

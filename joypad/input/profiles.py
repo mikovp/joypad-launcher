@@ -3,10 +3,22 @@ import json
 import os
 
 from joypad.input.constants import (
-    BTN_A, BTN_B, BTN_X, BTN_Y, BTN_LB, BTN_RB, BTN_BACK, BTN_START,
-    BTN_FACE, BTN_PROFILE_NAMES, FACE_PROFILE_NAMES,
-    _BTN_PROFILE_ALIASES, _FACE_PROFILE_ALIASES,
-    SLOT_BINDING_MODES, PROFILES_DIR_DEFAULT, DEFAULT_PROFILE_ID,
+    _BTN_PROFILE_ALIASES,
+    _FACE_PROFILE_ALIASES,
+    BTN_A,
+    BTN_B,
+    BTN_BACK,
+    BTN_FACE,
+    BTN_LB,
+    BTN_PROFILE_NAMES,
+    BTN_RB,
+    BTN_START,
+    BTN_X,
+    BTN_Y,
+    DEFAULT_PROFILE_ID,
+    FACE_PROFILE_NAMES,
+    PROFILES_DIR_DEFAULT,
+    SLOT_BINDING_MODES,
 )
 
 
@@ -269,7 +281,7 @@ def default_profile_path(config, base_dir):
 
 
 def _load_profile_raw(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, dict):
         raise ValueError("Profile must be a JSON object")

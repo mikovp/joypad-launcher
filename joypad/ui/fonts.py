@@ -17,7 +17,7 @@ def _hard_break_word(font, word, max_width):
     return lines if lines else [word]
 
 
-def _wrap_words_to_width(font, text, max_width):
+def wrap_words_to_width(font, text, max_width):
     """Word-wrap text so each line fits within max_width pixels."""
     if max_width < 16:
         return [text] if text else [""]

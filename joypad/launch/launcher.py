@@ -9,11 +9,11 @@ except ImportError:
     sys.exit(1)
 
 from joypad.platform.windows import (
-    _send_launcher_to_back,
-    _bring_process_window_to_foreground,
-    _bring_game_to_foreground,
     _yield_for_game_window,
-    _wait_for_game_and_restore,
+    bring_game_to_foreground,
+    bring_process_window_to_foreground,
+    send_launcher_to_back,
+    wait_for_game_and_restore,
 )
 
 _SUBPROCESS_KW = {
@@ -66,7 +66,7 @@ class _ShellExecuteProcess:
             pass
 
     def poll(self):
-        from ctypes import windll, byref
+        from ctypes import byref, windll
         from ctypes.wintypes import DWORD
 
         if not self._hp:
@@ -89,7 +89,7 @@ def _shell_execute_open_file(path):
         return None
     try:
         import ctypes
-        from ctypes import wintypes, byref
+        from ctypes import byref, wintypes
 
         SEE_MASK_NOCLOSEPROCESS = 0x00000040
 
@@ -209,15 +209,15 @@ def _try_launch_game(g, steam_path, default_args, steam_start_args, steam_skip_r
 
     _yield_for_game_window(2.0)
     if process and platform == "epic":
-        _bring_game_to_foreground(process, 12)
+        bring_game_to_foreground(process, 12)
     elif process and platform == "steam":
-        _bring_game_to_foreground(process, 20)
+        bring_game_to_foreground(process, 20)
     elif process:
-        _bring_process_window_to_foreground(process.pid)
+        bring_process_window_to_foreground(process.pid)
         _yield_for_game_window(0.5)
-        _bring_process_window_to_foreground(process.pid)
-    _send_launcher_to_back(hwnd)
+        bring_process_window_to_foreground(process.pid)
+    send_launcher_to_back(hwnd)
     pygame.display.iconify()
     if not skip_restore:
-        _wait_for_game_and_restore(process, hwnd, platform)
+        wait_for_game_and_restore(process, hwnd, platform)
     return (False, 15)  # axis_held

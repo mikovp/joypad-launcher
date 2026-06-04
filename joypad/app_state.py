@@ -39,7 +39,6 @@ class AppState:
     font_list: Any = None
     font_category: Any = None
     font_hint: Any = None
-    line_h: Any = None
     hint_line_h: Any = None
     list_start_y: Any = None
     list_bottom_margin: Any = None
@@ -72,6 +71,3 @@ class AppState:
     # Read-only session data carried for the overlay cluster (joypad.ui.overlay).
     system_menu_items: Any = None
     games: Any = None
-    # Orchestration callables injected for the overlay cluster (defined in run_launcher).
-    try_launch_game: Any = None
-    stop_active_remap: Any = None

@@ -1,4 +1,4 @@
-from joypad.input.constants import STICK_MODES, RIGHT_STICK_MODES
+from joypad.input.constants import RIGHT_STICK_MODES, STICK_MODES
 
 
 def _build_keyboard_bindings():

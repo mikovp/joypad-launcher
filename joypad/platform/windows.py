@@ -6,7 +6,6 @@ dev boxes, matching the original launcher.py behavior.
 """
 
 import os
-import subprocess
 import sys
 import time
 
@@ -57,7 +56,7 @@ def get_steam_path(config):
     return _get_steam_path_from_registry()
 
 
-def _send_launcher_to_back(hwnd):
+def send_launcher_to_back(hwnd):
     """Sends launcher window to background (Windows)."""
     if not hwnd or sys.platform != "win32":
         return
@@ -76,7 +75,7 @@ def _get_process_and_descendant_pids(pid):
     if not pid or sys.platform != "win32":
         return [pid] if pid else []
     try:
-        from ctypes import windll, byref, Structure, c_ulong, c_char, sizeof
+        from ctypes import Structure, byref, c_char, c_ulong, sizeof, windll
         from ctypes.wintypes import DWORD
         kernel32 = windll.kernel32
         TH32CS_SNAPPROCESS = 0x00000002
@@ -123,12 +122,12 @@ def _get_process_and_descendant_pids(pid):
         return [pid] if pid else []
 
 
-def _bring_process_window_to_foreground(pid):
+def bring_process_window_to_foreground(pid):
     """Finds process main window by PID and switches focus to it (Windows)."""
     if not pid or sys.platform != "win32":
         return
     try:
-        from ctypes import windll, byref, c_ulong, c_bool, c_void_p, WINFUNCTYPE
+        from ctypes import WINFUNCTYPE, byref, c_bool, c_ulong, c_void_p, windll
         found_hwnd = [None]
 
         def enum_callback(hwnd, _lparam):
@@ -153,7 +152,7 @@ def _bring_process_window_to_foreground(pid):
         pass
 
 
-def _bring_game_to_foreground(process, attempts=12, tick=None):
+def bring_game_to_foreground(process, attempts=12, tick=None):
     """Switches focus to process window or its child processes.
     attempts: number of tries (12 ~ 6s for Epic, 20 ~ 10s for Steam).
     """
@@ -164,7 +163,7 @@ def _bring_game_to_foreground(process, attempts=12, tick=None):
         pids = _get_process_and_descendant_pids(process.pid)
         for pid in pids:
             seen_pids.add(pid)
-            _bring_process_window_to_foreground(pid)
+            bring_process_window_to_foreground(pid)
         _sleep_with_spinner(0.5, tick=tick)
 
 
@@ -173,7 +172,7 @@ def _bring_any_other_window_to_foreground(skip_hwnd):
     if not skip_hwnd or sys.platform != "win32":
         return
     try:
-        from ctypes import windll, byref, c_ulong, c_bool, c_void_p, WINFUNCTYPE, create_unicode_buffer
+        from ctypes import WINFUNCTYPE, c_bool, c_void_p, create_unicode_buffer, windll
         found_hwnd = [None]
 
         def enum_callback(hwnd, _lparam):
@@ -235,7 +234,7 @@ def _yield_for_game_window(seconds=2.0, tick=None):
         _sleep_with_spinner(step_s, tick=tick)
 
 
-def _wait_for_game_and_restore(
+def wait_for_game_and_restore(
     process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None, tick=None
 ):
     """Waits for game process to finish, then brings launcher to foreground.
@@ -287,7 +286,7 @@ def _wait_for_game_and_restore(
     _bring_launcher_to_front(hwnd)
 
 
-def _show_error_message(message):
+def show_error_message(message):
     """Show error dialog (Windows) for visibility when running exe without console."""
     if sys.platform == "win32":
         try:

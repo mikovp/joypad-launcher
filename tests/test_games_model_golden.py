@@ -32,4 +32,4 @@ def test_build_tile_sections_shape():
 
 def test_tile_selection_title_nsp_prefers_filename():
     g = {"name": "X", "platform": "nsp", "nsp_filename": "Zelda.nsp"}
-    assert launcher._tile_selection_title(g) == "Zelda.nsp"
+    assert launcher.tile_selection_title(g) == "Zelda.nsp"

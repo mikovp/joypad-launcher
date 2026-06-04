@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Download cover art from free public sources into a local disk cache.
 No API keys required (Steam store search, Steam CDN, Libretro, Wikipedia).
@@ -403,7 +402,7 @@ class CdnCoverStore:
         if not path or not os.path.isfile(path):
             return
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict):
                 self._steam_search_cache.update(data)

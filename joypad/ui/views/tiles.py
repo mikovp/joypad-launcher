@@ -8,9 +8,9 @@ carried on ``state`` as well.
 
 import pygame
 
-from joypad.config.theme import _parse_tile_scale
 from joypad.config.settings import _TILE_SCALE_DEFAULT
-from joypad.games.model import _tile_selection_title
+from joypad.config.theme import parse_tile_scale
+from joypad.games.model import tile_selection_title
 
 
 def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, title_line_h=None):
@@ -18,7 +18,7 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, title_lin
     Square tile grid: N tiles per row, rows stacked below (scroll vertically).
     tile_scale enlarges tiles (fewer per row); set in theme.tile_scale or Settings.
     """
-    scale = _parse_tile_scale(tile_scale, 1.0)
+    scale = parse_tile_scale(tile_scale, 1.0)
     side_margin = max(24, screen_w // 40)
     gap = max(8, min(18, int(14 * scale)))
     top_banner = 36 + hint_line_h * 2
@@ -61,7 +61,7 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, title_lin
 
 
 def rebuild_tile_geometry(state):
-    _ts = _parse_tile_scale((state.config.get("theme") or {}).get("tile_scale"), _TILE_SCALE_DEFAULT)
+    _ts = parse_tile_scale((state.config.get("theme") or {}).get("tile_scale"), _TILE_SCALE_DEFAULT)
     state.tile_scale = _ts
     state.tile_geom = compute_tile_grid(
         state.w, state.h, state.hint_line_h, tile_scale=state.tile_scale, title_line_h=state.font_title.get_linesize()
@@ -315,7 +315,7 @@ def draw_tiles_view(state):
     if not state.tile_sections:
         return
     g = tile_selected_game(state)
-    gname = _tile_selection_title(g)
+    gname = tile_selection_title(g)
     tg = state.tile_geom
     sm = tg["side_margin"]
     tw, th = tg["tile_w"], tg["tile_h"]

@@ -32,7 +32,7 @@ def test_parse_font_bold():
 
 
 def test_theme_from_config_defaults_and_overrides():
-    theme = launcher._theme_from_config(
+    theme = launcher.theme_from_config(
         {"theme": {"background": "#14141c", "font_size_title": 50}}
     )
     assert theme["background"] == (0x14, 0x14, 0x1c)

@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 Scan installed games from Steam and Epic Games libraries.
 """
 
+import glob
 import json
 import os
-import glob
 import re
 
 try:
@@ -40,7 +39,7 @@ _STEAM_SKIP_NAME_PARTS = (
 def _parse_vdf_simple(path):
     """Minimal VDF parser (no vdf dep): keys and values in quotes, nested {}."""
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             text = f.read()
     except Exception:
         return None
@@ -79,7 +78,7 @@ def _parse_vdf(path):
     """Reads VDF file and returns dict. Uses vdf first, fallback to built-in parser."""
     if vdf:
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 return vdf.load(f)
         except Exception:
             pass
@@ -104,7 +103,7 @@ def scan_steam_games(steam_exe_path):
             lf = data.get("libraryfolders") or data.get("LibraryFolders")
             if lf:
                 seen_paths = {steam_dir.lower()}
-                for key, folder in lf.items():
+                for _key, folder in lf.items():
                     if isinstance(folder, dict):
                         path_val = folder.get("path") or folder.get("Path")
                     elif isinstance(folder, str):
@@ -243,7 +242,7 @@ def scan_epic_games():
             continue
         for item_path in _epic_manifest_paths(manifests_dir):
             try:
-                with open(item_path, "r", encoding="utf-8", errors="replace") as f:
+                with open(item_path, encoding="utf-8", errors="replace") as f:
                     data = json.load(f)
             except Exception:
                 continue

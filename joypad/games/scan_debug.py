@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Diagnostics: check Steam and Epic detection. Run: python scan_debug.py"""
 
 import os
@@ -14,7 +13,7 @@ def main():
         print("No config.json and config.example.json")
         return
     import json
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         config = json.load(f)
 
     # Steam path
@@ -69,7 +68,7 @@ def main():
             print(f"  libraryfolders.vdf exists: {os.path.isfile(lf)}")
 
     # Scanning
-    from joypad.games.scan import scan_steam_games, scan_epic_games, scan_twitch_app, scan_all
+    from joypad.games.scan import scan_epic_games, scan_steam_games, scan_twitch_app
     steam_games = scan_steam_games(steam_path) if steam_path else []
     epic_games = scan_epic_games()
     twitch_games = scan_twitch_app()

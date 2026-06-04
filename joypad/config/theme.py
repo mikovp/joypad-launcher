@@ -83,7 +83,7 @@ def _parse_positive_float(value, default):
         return default
 
 
-def _theme_from_config(config):
+def theme_from_config(config):
     """Returns theme colors and sizes dict from config (theme.*)."""
     theme = config.get("theme") or {}
     return {
@@ -103,7 +103,7 @@ def _theme_from_config(config):
     }
 
 
-def _scale_theme_fonts_for_screen(theme, theme_section, screen_height):
+def scale_theme_fonts_for_screen(theme, theme_section, screen_height):
     """
     Scale fonts up when display height is below the reference (e.g. 1280×960 / streaming).
     Default: if height < auto_font_boost_ref_height (1080), multiply by ref/height, capped at auto_font_boost_max.
@@ -131,21 +131,21 @@ def _scale_theme_fonts_for_screen(theme, theme_section, screen_height):
     theme["font_size_list"] = max(12, min(72, l))
 
 
-def _ui_mode_from_theme(theme_section):
+def ui_mode_from_theme(theme_section):
     v = (theme_section or {}).get("ui_mode")
     if isinstance(v, str) and v.strip().lower() == "tiles":
         return "tiles"
     return "list"
 
 
-def _ui_mode_label(mode):
+def ui_mode_label(mode):
     return "Tiles" if mode == "tiles" else "List"
 
 
 _TILE_SCALE_DEFAULT = 2.5
 
 
-def _parse_tile_scale(value, default=None):
+def parse_tile_scale(value, default=None):
     if default is None:
         default = _TILE_SCALE_DEFAULT
     if value is None:

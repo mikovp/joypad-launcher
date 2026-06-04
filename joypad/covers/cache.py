@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Game cover art: local files, Steam cache, CDN disk cache, placeholders."""
 
 import glob

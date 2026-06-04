@@ -7,8 +7,8 @@ list_left) is carried on ``state`` as well. Navigation functions dispatch on
 ``state.ui_mode`` and delegate to the tile cluster in ``joypad.ui.views.tiles``.
 """
 
+from joypad.ui.fonts import wrap_words_to_width
 from joypad.ui.views import tiles
-from joypad.ui.fonts import _wrap_words_to_width
 
 
 def build_list_layout(state):
@@ -29,7 +29,7 @@ def build_list_layout(state):
             x_text = state.list_left + pw
             usable = max(48, max_right - x_text)
             name = item["game"].get("name", "Untitled")
-            name_lines = _wrap_words_to_width(state.font_list, name, usable)
+            name_lines = wrap_words_to_width(state.font_list, name, usable)
             h_row = max(state.list_line_skip, len(name_lines) * state.list_line_skip + 6)
             specs.append({
                 "kind": "game",

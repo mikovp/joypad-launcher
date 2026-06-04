@@ -3,16 +3,23 @@ import os
 import sys
 import time
 
-from joypad.input.constants import (
-    BTN_A, BTN_B, BTN_X, BTN_Y, BTN_LB, BTN_RB, BTN_BACK, BTN_START,
-    BTN_FACE, STICK_MODES, RIGHT_STICK_MODES, TRIGGER_THRESHOLD,
-    XINPUT_DPAD, XINPUT_FACE, GAME_WATCH_GRACE, GAME_WATCH_ACTIVITY_GRACE,
-)
 from joypad.input.bindings import VK
-from joypad.input.log import remap_log, init_remap_log, remap_log_enabled
+from joypad.input.constants import (
+    BTN_FACE,
+    BTN_LB,
+    BTN_RB,
+    GAME_WATCH_ACTIVITY_GRACE,
+    GAME_WATCH_GRACE,
+    STICK_MODES,
+    TRIGGER_THRESHOLD,
+    XINPUT_DPAD,
+    XINPUT_FACE,
+)
+from joypad.input.log import init_remap_log, remap_log
 from joypad.input.profiles import (
-    load_profile, prepare_profile, resolve_profile_path,
-    game_remap_key, parse_slot_binding, ensure_chords,
+    ensure_chords,
+    load_profile,
+    parse_slot_binding,
 )
 
 # Stick click (L3 / R3)
@@ -23,8 +30,23 @@ XINPUT_R3 = 0x0080
 # --- Windows input ---
 
 if sys.platform == "win32":
-    from ctypes import Structure, Union, WINFUNCTYPE, byref, c_int, c_int16, c_long, c_short, c_ubyte, c_ulong, c_ulonglong, c_void_p, c_wchar, sizeof, windll
-    from ctypes.wintypes import DWORD, HANDLE, WORD
+    from ctypes import (
+        WINFUNCTYPE,
+        Structure,
+        Union,
+        byref,
+        c_int,
+        c_long,
+        c_short,
+        c_ubyte,
+        c_ulong,
+        c_ulonglong,
+        c_void_p,
+        c_wchar,
+        sizeof,
+        windll,
+    )
+    from ctypes.wintypes import DWORD, WORD
 
     ULONG_PTR = c_ulonglong if sizeof(c_void_p) == 8 else c_ulong
 
@@ -151,6 +173,20 @@ if sys.platform == "win32":
     class XINPUT_STATE(Structure):
         _fields_ = [("dwPacketNumber", DWORD), ("Gamepad", XINPUT_GAMEPAD)]
 
+    class PROCESSENTRY32(Structure):
+        _fields_ = [
+            ("dwSize", DWORD),
+            ("cntUsage", DWORD),
+            ("th32ProcessID", DWORD),
+            ("th32DefaultHeapID", c_ulong),
+            ("th32ModuleID", DWORD),
+            ("cntThreads", DWORD),
+            ("th32ParentProcessID", DWORD),
+            ("pcPriClassBase", c_ulong),
+            ("dwFlags", DWORD),
+            ("szExeFile", c_ubyte * 260),
+        ]
+
     _xinput = None
     for _dll in ("xinput1_4.dll", "xinput1_3.dll", "xinput9_1_0.dll"):
         try:
@@ -238,20 +274,6 @@ if sys.platform == "win32":
         try:
             TH32CS_SNAPPROCESS = 0x00000002
             INVALID_HANDLE_VALUE = 0xFFFFFFFF
-
-            class PROCESSENTRY32(Structure):
-                _fields_ = [
-                    ("dwSize", DWORD),
-                    ("cntUsage", DWORD),
-                    ("th32ProcessID", DWORD),
-                    ("th32DefaultHeapID", c_ulong),
-                    ("th32ModuleID", DWORD),
-                    ("cntThreads", DWORD),
-                    ("th32ParentProcessID", DWORD),
-                    ("pcPriClassBase", c_ulong),
-                    ("dwFlags", DWORD),
-                    ("szExeFile", c_ubyte * 260),
-                ]
 
             kernel32 = windll.kernel32
             snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
@@ -598,20 +620,6 @@ if sys.platform == "win32":
             TH32CS_SNAPPROCESS = 0x00000002
             INVALID_HANDLE_VALUE = 0xFFFFFFFF
 
-            class PROCESSENTRY32(Structure):
-                _fields_ = [
-                    ("dwSize", DWORD),
-                    ("cntUsage", DWORD),
-                    ("th32ProcessID", DWORD),
-                    ("th32DefaultHeapID", c_ulong),
-                    ("th32ModuleID", DWORD),
-                    ("cntThreads", DWORD),
-                    ("th32ParentProcessID", DWORD),
-                    ("pcPriClassBase", c_ulong),
-                    ("dwFlags", DWORD),
-                    ("szExeFile", c_ubyte * 260),
-                ]
-
             kernel32 = windll.kernel32
             snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
             if snap in (None, INVALID_HANDLE_VALUE):
@@ -670,20 +678,6 @@ if sys.platform == "win32":
         try:
             TH32CS_SNAPPROCESS = 0x00000002
             INVALID_HANDLE_VALUE = 0xFFFFFFFF
-
-            class PROCESSENTRY32(Structure):
-                _fields_ = [
-                    ("dwSize", DWORD),
-                    ("cntUsage", DWORD),
-                    ("th32ProcessID", DWORD),
-                    ("th32DefaultHeapID", c_ulong),
-                    ("th32ModuleID", DWORD),
-                    ("cntThreads", DWORD),
-                    ("th32ParentProcessID", DWORD),
-                    ("pcPriClassBase", c_ulong),
-                    ("dwFlags", DWORD),
-                    ("szExeFile", c_ubyte * 260),
-                ]
 
             kernel32 = windll.kernel32
             snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)

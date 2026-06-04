@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "joypad-launcher"
+version = "0.1.0"
+description = "Gamepad-controlled game launcher for Steam, Epic and Switch (Windows, pygame)."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+dependencies = [
+    "pygame>=2.5.0",
+    "vdf>=3.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.6", "mypy>=1.8"]
+
+[project.scripts]
+joypad-launcher = "joypad.app:main"
+
+[tool.setuptools]
+packages = ["joypad", "joypad.config", "joypad.games", "joypad.covers", "joypad.launch", "joypad.input", "joypad.ui", "joypad.ui.views", "joypad.platform", "ddcci"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+
+[tool.ruff.lint]
+# E/F = pyflakes+pycodestyle errors, I = import sorting, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "E501",   # line length handled by formatter, not enforced hard
+    "E741",   # ambiguous var names (l, etc.) used in existing layout code
+    "UP031",  # printf-style %-formatting kept as-is (legacy, pervasive); not worth churn
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = true   # pygame/vdf/ctypes-win have no stubs here
+warn_unused_ignores = false
+check_untyped_defs = false
+# Gradual typing: do not require annotations yet.
+disallow_untyped_defs = false

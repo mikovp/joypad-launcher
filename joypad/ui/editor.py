@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Visual gamepad mapping editor (pygame)."""
 
 import os
@@ -7,18 +6,38 @@ import sys
 
 import pygame
 
-from joypad.input.constants import (
-    BTN_A, BTN_B, BTN_X, BTN_Y, BTN_LB, BTN_RB, BTN_BACK, BTN_START,
-)
 from joypad.input.bindings import (
-    DPAD_BINDINGS, binding_label, cycle_binding,
-    cycle_right_stick_mode, cycle_stick_mode,
+    DPAD_BINDINGS,
+    binding_label,
+    cycle_binding,
+    cycle_right_stick_mode,
+    cycle_stick_mode,
+)
+from joypad.input.constants import (
+    BTN_A,
+    BTN_B,
+    BTN_BACK,
+    BTN_LB,
+    BTN_RB,
+    BTN_START,
+    BTN_X,
+    BTN_Y,
 )
 from joypad.input.profiles import (
-    assign_game_profile, ensure_chords, game_remap_key, get_assigned_profile_id,
-    list_remapped_games, load_default_profile, load_profile, parse_chord_slot_key,
-    format_slot_binding, parse_slot_binding, profile_file_path, profiles_dir,
-    save_profile, suggest_profile_id, unassign_game,
+    assign_game_profile,
+    ensure_chords,
+    format_slot_binding,
+    game_remap_key,
+    get_assigned_profile_id,
+    list_remapped_games,
+    load_default_profile,
+    load_profile,
+    parse_chord_slot_key,
+    parse_slot_binding,
+    profile_file_path,
+    save_profile,
+    suggest_profile_id,
+    unassign_game,
 )
 
 # Re-export button constants for layout
@@ -919,7 +938,6 @@ class InputRemapSession:
 
         badge_s = self.font_hint.render(badge, True, self.title)
         badge_pad = 10
-        inner_w = w - badge_pad * 2
 
         if side == "left":
             badge_x = x + w - badge_pad - badge_s.get_width()
@@ -1082,7 +1100,6 @@ class InputRemapSession:
             ("X", "Clear / −", (191, 176, 77)),
             ("B", "Back", (191, 77, 77)),
         ]
-        parts = []
         x = w // 2 - 180
         for key, action, col in hints:
             ks = self.font_hint.render(key, True, col)

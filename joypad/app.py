@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Joypad Launcher application entry point.
 """
@@ -13,22 +12,42 @@ except ImportError:
     print("Install pygame: pip install pygame")
     sys.exit(1)
 
-from joypad.platform.windows import (
-    get_steam_path,
-    _send_launcher_to_back,
-    _bring_process_window_to_foreground,
-    _bring_game_to_foreground,
-    _yield_for_game_window,
-    _wait_for_game_and_restore,
-    _show_error_message,
-)
-
-from joypad.paths import _BASE_DIR
 from joypad.app_state import AppState
-from joypad.ui.views import tiles
-from joypad.ui.views import list as lst
-from joypad.ui.views.tiles import compute_tile_grid
+from joypad.config.loader import load_config
+from joypad.config.settings import (
+    _TILE_SCALE_DEFAULT,
+)
+from joypad.config.theme import (
+    parse_tile_scale,
+    scale_theme_fonts_for_screen,
+    theme_from_config,
+    ui_mode_from_theme,
+)
+from joypad.games.model import (
+    build_categorized_game_list,
+    build_tile_sections,
+)
+from joypad.launch.launcher import (
+    launch_epic_game,
+    launch_nsp_game,
+    launch_steam_game,
+    perform_system_action,
+)
+from joypad.paths import _BASE_DIR
+from joypad.platform.windows import (
+    _yield_for_game_window,
+    bring_game_to_foreground,
+    bring_process_window_to_foreground,
+    get_steam_path,
+    send_launcher_to_back,
+    show_error_message,
+    wait_for_game_and_restore,
+)
 from joypad.ui import overlay as ovl
+from joypad.ui.background import load_background_surface, resolve_background_image
+from joypad.ui.views import list as lst
+from joypad.ui.views import tiles
+from joypad.ui.views.tiles import compute_tile_grid
 
 # Gamepad buttons (Xbox layout)
 BTN_A = 0
@@ -42,25 +61,6 @@ BTN_START = 7
 AXIS_LEFT_Y = 1   # up negative, down positive
 AXIS_LEFT_X = 0
 DEADZONE = 0.5
-
-from joypad.config.theme import (
-    _theme_from_config, _scale_theme_fonts_for_screen,
-    _ui_mode_from_theme, _parse_tile_scale,
-)
-from joypad.config.loader import load_config
-from joypad.config.settings import (
-    _TILE_SCALE_DEFAULT,
-)
-from joypad.games.model import (
-    build_categorized_game_list, build_tile_sections,
-)
-from joypad.ui.background import resolve_background_image, _load_background_surface
-
-
-from joypad.launch.launcher import (
-    launch_steam_game, launch_epic_game, launch_nsp_game,
-    perform_system_action,
-)
 
 
 def run():
@@ -127,7 +127,7 @@ def run():
     )
     cover_cache.prefetch_async(games)
     state.cover_cache = cover_cache
-    state.ui_mode = _ui_mode_from_theme(_theme_cfg)
+    state.ui_mode = ui_mode_from_theme(_theme_cfg)
     default_args = config.get("fullscreen_args", {})
     state.steam_start_args = (config.get("steam_start_args") or "").strip() or None
     # Steam games that should not auto-restore launcher focus on exit (e.g. games with external launchers like Fallout 76).
@@ -135,7 +135,7 @@ def run():
         str(x)
         for x in (config.get("steam_skip_restore_ids") or [])
     }
-    state.theme = _theme_from_config(config)
+    state.theme = theme_from_config(config)
     state.bg_color = state.theme["background"]
     state.text_color = state.theme["text"]
     state.highlight_color = state.theme["cursor"]
@@ -151,7 +151,7 @@ def run():
     w, h = info.current_w, info.current_h
     state.w = w
     state.h = h
-    _scale_theme_fonts_for_screen(state.theme, config.get("theme") or {}, h)
+    scale_theme_fonts_for_screen(state.theme, config.get("theme") or {}, h)
     state.font_size_title = state.theme["font_size_title"]
     state.font_size_list = state.theme["font_size_list"]
     font_size_hint_cfg = state.theme.get("font_size_hint")
@@ -165,7 +165,7 @@ def run():
     pygame.mouse.set_visible(False)
 
     # Background image (path relative to launcher folder or absolute)
-    state.bg_surface = _load_background_surface(state.background_image_path, w, h)
+    state.bg_surface = load_background_surface(state.background_image_path, w, h)
     hwnd = pygame.display.get_wm_info().get("window") if sys.platform == "win32" else None
     if hwnd and sys.platform == "win32":
         try:
@@ -195,7 +195,6 @@ def run():
     state.font_category = pygame.font.SysFont("Segoe UI", state.font_size_list, bold=True)
     state.font_hint = pygame.font.SysFont("Segoe UI", state.font_size_hint, bold=state.font_bold_title)
 
-    state.line_h = max(36, int(state.font_size_list * 2))
     state.hint_line_h = state.font_hint.get_linesize()
     state.list_start_y = 36 + state.hint_line_h * 2
     state.list_bottom_margin = max(44, state.hint_line_h + 24)
@@ -230,7 +229,7 @@ def run():
     state.tile_pick = 0
     state.tile_scroll_y = 0
     _theme_for_tiles = config.get("theme") or {}
-    state.tile_scale = _parse_tile_scale(_theme_for_tiles.get("tile_scale"), _TILE_SCALE_DEFAULT)
+    state.tile_scale = parse_tile_scale(_theme_for_tiles.get("tile_scale"), _TILE_SCALE_DEFAULT)
     state.tile_geom = compute_tile_grid(
         w, h, state.hint_line_h, tile_scale=state.tile_scale, title_line_h=state.font_title.get_linesize()
     )
@@ -467,18 +466,18 @@ def run():
         try:
             _yield_for_game_window(2.0, tick=tick)
             if process and platform == "epic":
-                _bring_game_to_foreground(process, 12, tick=tick)
+                bring_game_to_foreground(process, 12, tick=tick)
             elif process and platform == "steam":
-                _bring_game_to_foreground(process, 20, tick=tick)
+                bring_game_to_foreground(process, 20, tick=tick)
             elif process and platform == "nsp":
-                _bring_game_to_foreground(process, 12, tick=tick)
+                bring_game_to_foreground(process, 12, tick=tick)
             elif process:
-                _bring_process_window_to_foreground(process.pid)
+                bring_process_window_to_foreground(process.pid)
                 _yield_for_game_window(0.5, tick=tick)
-                _bring_process_window_to_foreground(process.pid)
-            _send_launcher_to_back(hwnd)
+                bring_process_window_to_foreground(process.pid)
+            send_launcher_to_back(hwnd)
             if not skip_restore:
-                _wait_for_game_and_restore(
+                wait_for_game_and_restore(
                     process,
                     hwnd,
                     platform,
@@ -491,9 +490,6 @@ def run():
             stop_remap_worker(remap_proc)
             active_remap_proc[0] = None
         return (False, 15)
-
-    state.try_launch_game = try_launch_game
-    state.stop_active_remap = stop_active_remap
 
     state.title_surface, state.hint_surface = _hint_surfaces()
 
@@ -877,5 +873,5 @@ def main(argv=None):
         except Exception:
             pass
         traceback.print_exc()
-        _show_error_message("Launch error.\nDetails written to:\n%s" % log_path)
+        show_error_message("Launch error.\nDetails written to:\n%s" % log_path)
         return 1

@@ -1,12 +1,9 @@
 import os
 import subprocess
 import sys
-import time
 
-from joypad.input.log import remap_log, init_remap_log
-from joypad.input.engine import run_remap_loop, wait_for_game_exe_exit, game_process_alive
-from joypad.input.profiles import resolve_profile_path, load_profile, prepare_profile
-from joypad.input.watch import game_watch_targets
+from joypad.input.engine import run_remap_loop
+from joypad.input.log import init_remap_log, remap_log
 
 
 def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe=None, watch_dir=None, parent_pid=None, log_enabled=False):

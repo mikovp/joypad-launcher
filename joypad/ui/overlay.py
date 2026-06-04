@@ -12,19 +12,23 @@ import time
 
 import pygame
 
-from joypad.ui.views import tiles
-from joypad.ui.views import list as lst
+from joypad.config.loader import save_config
 from joypad.config.settings import (
-    _TILE_SCALE_DEFAULT, build_settings_menu, apply_setting_toggle,
+    _TILE_SCALE_DEFAULT,
+    apply_setting_toggle,
+    build_settings_menu,
 )
 from joypad.config.theme import (
-    _theme_from_config, _scale_theme_fonts_for_screen,
-    _ui_mode_from_theme, _parse_tile_scale,
+    parse_tile_scale,
+    scale_theme_fonts_for_screen,
+    theme_from_config,
+    ui_mode_from_theme,
 )
-from joypad.config.loader import save_config
-from joypad.ui.background import resolve_background_image, _load_background_surface
 from joypad.launch.launcher import perform_system_action
 from joypad.paths import _BASE_DIR
+from joypad.ui.background import load_background_surface, resolve_background_image
+from joypad.ui.views import list as lst
+from joypad.ui.views import tiles
 
 
 def _settings_first_row(state):
@@ -102,17 +106,17 @@ def overlay_move(state, delta):
 
 
 def reload_fonts_and_layout(state):
-    state.theme = _theme_from_config(state.config)
+    state.theme = theme_from_config(state.config)
     theme_section = state.config.get("theme") or {}
-    state.ui_mode = _ui_mode_from_theme(theme_section)
-    state.tile_scale = _parse_tile_scale(theme_section.get("tile_scale"), _TILE_SCALE_DEFAULT)
+    state.ui_mode = ui_mode_from_theme(theme_section)
+    state.tile_scale = parse_tile_scale(theme_section.get("tile_scale"), _TILE_SCALE_DEFAULT)
     state.bg_color = state.theme["background"]
     state.text_color = state.theme["text"]
     state.highlight_color = state.theme["cursor"]
     state.title_color = state.theme["title"]
     state.font_bold_title = state.theme["font_bold_title"]
     state.font_bold_list = state.theme["font_bold_list"]
-    _scale_theme_fonts_for_screen(state.theme, state.config.get("theme") or {}, state.h)
+    scale_theme_fonts_for_screen(state.theme, state.config.get("theme") or {}, state.h)
     state.font_size_title = state.theme["font_size_title"]
     state.font_size_list = state.theme["font_size_list"]
     font_size_hint_cfg = state.theme.get("font_size_hint")
@@ -138,7 +142,7 @@ def reload_fonts_and_layout(state):
 def apply_setting_live(state, key):
     if key == "background":
         state.background_image_path = resolve_background_image(state.config)
-        state.bg_surface = _load_background_surface(state.background_image_path, state.w, state.h)
+        state.bg_surface = load_background_surface(state.background_image_path, state.w, state.h)
     elif key in (
         "ui_mode",
         "tile_scale",

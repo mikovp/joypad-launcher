@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from joypad.paths import CONFIG_PATH, CONFIG_EXAMPLE, _BASE_DIR
+from joypad.paths import _BASE_DIR, CONFIG_EXAMPLE, CONFIG_PATH
 
 
 def load_config():
@@ -18,7 +18,7 @@ def load_config():
         msg = f"config.json not found. Copy config.example.json to the launcher folder:\n{_BASE_DIR}"
         print(msg)
         raise FileNotFoundError(msg)
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     if path == CONFIG_EXAMPLE and not os.path.exists(CONFIG_PATH):
         print("Using config.example.json. Copy to config.json and configure games.")

@@ -1,9 +1,9 @@
 import os
 import sys
 
-from joypad.paths import _BASE_DIR
 from joypad.config.loader import save_config
-from joypad.config.theme import _ui_mode_from_theme, _ui_mode_label, _parse_tile_scale
+from joypad.config.theme import parse_tile_scale, ui_mode_from_theme, ui_mode_label
+from joypad.paths import _BASE_DIR
 
 _FONT_SCALE_OPTIONS = [1.0, 1.08, 1.15, 1.25, 1.35, 1.5]
 _TILE_SCALE_OPTIONS = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 9.0]
@@ -55,7 +55,7 @@ def build_settings_menu(config):
     theme = config.get("theme") or {}
     delay = int(ddcci.get("delay_ms", 2000))
     scale = float(theme.get("font_scale", 1.0) or 1.0)
-    tile_scale = _parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)
+    tile_scale = parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)
     title_sz = int(theme.get("font_size_title") or 42)
     list_sz = int(theme.get("font_size_list") or 28)
     hint_sz = theme.get("font_size_hint")
@@ -67,7 +67,7 @@ def build_settings_menu(config):
             ("ddcci_log", "Debug log: %s" % _on_off(ddcci.get("log"))),
         ]),
         ("Appearance", [
-            ("ui_mode", "View: %s" % _ui_mode_label(_ui_mode_from_theme(theme))),
+            ("ui_mode", "View: %s" % ui_mode_label(ui_mode_from_theme(theme))),
             ("tile_scale", "Tile scale: %.2f" % tile_scale),
             ("background", "Background: %s" % _on_off(_background_enabled(config))),
             ("font_scale", "Font scale: %.2f" % scale),
@@ -116,10 +116,10 @@ def apply_setting_toggle(config, key):
         ddcci["delay_ms"] = _cycle_option(cur, _DDCCI_DELAY_OPTIONS)
     elif key == "ui_mode":
         theme = config.setdefault("theme", {})
-        theme["ui_mode"] = "tiles" if _ui_mode_from_theme(theme) == "list" else "list"
+        theme["ui_mode"] = "tiles" if ui_mode_from_theme(theme) == "list" else "list"
     elif key == "tile_scale":
         theme = config.setdefault("theme", {})
-        cur = _parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)
+        cur = parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)
         theme["tile_scale"] = _cycle_option(cur, _TILE_SCALE_OPTIONS)
     elif key == "background":
         theme = config.setdefault("theme", {})
