@@ -20,7 +20,7 @@ python launcher.py
 ```bash
 python -m pytest -q
 python -m ruff check .
-python -m mypy joypad/config/types.py joypad/config/twitch.py
+python -m mypy joypad/config/types.py joypad/config/twitch.py joypad/input/xinput joypad/ui/editor/layout.py joypad/ui/editor/input joypad/ui/editor/slots joypad/input/watch
 ```
 
 ## Build EXE

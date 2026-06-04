@@ -25,4 +25,4 @@ jobs:
       - name: Lint
         run: |
           ruff check .
-          mypy joypad/config/types.py joypad/config/twitch.py joypad/input/xinput.py joypad/ui/editor/layout.py joypad/ui/editor/input.py joypad/ui/editor/slots.py joypad/input/watch.py
+          mypy joypad/config/types.py joypad/config/twitch.py joypad/input/xinput joypad/ui/editor/layout.py joypad/ui/editor/input joypad/ui/editor/slots joypad/input/watch
