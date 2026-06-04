@@ -43,7 +43,9 @@ ignore = [
 "tests/*" = ["E402"]
 
 [tool.mypy]
-python_version = "3.8"
+# Analysis target (mypy needs >=3.10); runtime still supports 3.8 via
+# `from __future__ import annotations`.
+python_version = "3.10"
 ignore_missing_imports = true   # pygame/vdf/ctypes-win have no stubs here
 warn_unused_ignores = false
 check_untyped_defs = false

@@ -289,7 +289,13 @@ def _load_profile_raw(path):
 
 
 def merge_profiles(base, override):
-    """Deep-merge override onto base (override wins)."""
+    """Merge override onto base (override wins).
+
+    Top-level keys are merged; nested dict values (e.g. ``buttons``, ``triggers``)
+    are merged one level deep, per key. Doubly-nested values (e.g. a ``chords``
+    layer) are replaced wholesale, not recursed into — callers rely on
+    ``ensure_chords`` to backfill any chord slots afterwards.
+    """
     out = copy.deepcopy(base)
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(out.get(key), dict):

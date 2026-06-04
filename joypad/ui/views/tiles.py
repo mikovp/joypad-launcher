@@ -37,8 +37,20 @@ def compute_tile_grid(screen_w, screen_h, hint_line_h, tile_scale=1.0, title_lin
     while tile_size < int(target_tile * 0.92) and cols > 2:
         cols -= 1
         tile_size = (usable_w - gap * (cols - 1)) // cols
+    # Cap columns so a row of min-width tiles fits the usable width. Without this,
+    # small screens + large tile_scale overflow once the min_tile floor is applied
+    # (the floor forced tiles wider than the row could hold).
+    max_cols_fit = max(2, (usable_w + gap) // (min_tile + gap))
+    if cols > max_cols_fit:
+        cols = max_cols_fit
+        tile_size = (usable_w - gap * (cols - 1)) // cols
     max_tile = min(usable_w // 2, int(grid_h * 0.48), int(220 * scale))
     tile_size = max(min_tile, min(max_tile, tile_size))
+    # Final safety: never let a row exceed the usable width, even on the smallest
+    # screens where two min_tile-wide tiles still cannot fit.
+    max_fit = (usable_w - gap * (cols - 1)) // cols
+    if tile_size > max_fit:
+        tile_size = max_fit
     grid_content_w = cols * tile_size + gap * max(0, cols - 1)
     grid_offset_x = side_margin + max(0, (usable_w - grid_content_w) // 2)
 
