@@ -69,7 +69,7 @@ def main():
             print(f"  libraryfolders.vdf exists: {os.path.isfile(lf)}")
 
     # Scanning
-    from scan_libraries import scan_steam_games, scan_epic_games, scan_twitch_app, scan_all
+    from joypad.games.scan import scan_steam_games, scan_epic_games, scan_twitch_app, scan_all
     steam_games = scan_steam_games(steam_path) if steam_path else []
     epic_games = scan_epic_games()
     twitch_games = scan_twitch_app()

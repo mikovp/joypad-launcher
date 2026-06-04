@@ -24,9 +24,14 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Run tests
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -q
+
       - name: Build EXE
         run: |
-          python -m PyInstaller --onefile --windowed --name JoypadLauncher --hidden-import scan_libraries --add-data "config.example.json;." --clean launcher.py
+          python -m PyInstaller --onefile --windowed --name JoypadLauncher --collect-submodules joypad --collect-submodules ddcci --add-data "config.example.json;." --add-data "input_profiles;input_profiles" --add-data "assets;assets" --clean launcher.py
 
       - name: Create ZIP package
         shell: pwsh

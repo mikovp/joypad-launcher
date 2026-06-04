@@ -34,6 +34,25 @@ python launcher.py
 
 Set `"auto_scan": true` in `config.json` to auto-detect Steam and Epic games.
 
+## Project layout
+
+The launcher is a Python package under [`joypad/`](joypad/); `launcher.py` is a thin entry point that calls `joypad.app.main()`.
+
+| Path | Responsibility |
+|------|----------------|
+| `joypad/app.py` | Game loop and entry (`main`), with `--input-remap-worker` dispatch |
+| `joypad/app_state.py` | `AppState` — mutable loop state |
+| `joypad/config/` | Config load/save, theme parsing, settings menu |
+| `joypad/games/` | Game model + Steam/Epic/NSP scanners |
+| `joypad/covers/` | Cover-art cache and CDN |
+| `joypad/launch/` | Launching games and system actions |
+| `joypad/input/` | Gamepad remap: profiles, bindings, engine, watch, worker |
+| `joypad/ui/` | pygame rendering: list/tiles views, overlays, remap editor |
+| `joypad/platform/windows.py` | All Windows-specific code (registry, windows, processes) |
+| `ddcci/` | Monitor power control |
+
+Run the tests with `pip install -r requirements-dev.txt && pytest`.
+
 ## Controls
 
 | Action       | Gamepad (list)             | Gamepad (tiles)              | Keyboard        |

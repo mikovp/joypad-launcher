@@ -11,7 +11,7 @@ try:
 except ImportError:
     pygame = None
 
-from cover_cdn import CdnCoverStore, nsp_cover_stems
+from joypad.covers.cdn import CdnCoverStore, nsp_cover_stems
 
 _PLATFORM_COLORS = {
     "steam": (35, 55, 85),

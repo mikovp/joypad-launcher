@@ -7,35 +7,18 @@ import sys
 
 import pygame
 
-from input_remap import (
-    BTN_A,
-    BTN_B,
-    BTN_BACK,
-    BTN_LB,
-    BTN_RB,
-    BTN_START,
-    BTN_X,
-    BTN_Y,
-    DPAD_BINDINGS,
-    assign_game_profile,
-    binding_label,
-    cycle_binding,
-    cycle_right_stick_mode,
-    cycle_stick_mode,
-    ensure_chords,
-    game_remap_key,
-    get_assigned_profile_id,
-    list_remapped_games,
-    load_default_profile,
-    load_profile,
-    parse_chord_slot_key,
-    format_slot_binding,
-    parse_slot_binding,
-    profile_file_path,
-    profiles_dir,
-    save_profile,
-    suggest_profile_id,
-    unassign_game,
+from joypad.input.constants import (
+    BTN_A, BTN_B, BTN_X, BTN_Y, BTN_LB, BTN_RB, BTN_BACK, BTN_START,
+)
+from joypad.input.bindings import (
+    DPAD_BINDINGS, binding_label, cycle_binding,
+    cycle_right_stick_mode, cycle_stick_mode,
+)
+from joypad.input.profiles import (
+    assign_game_profile, ensure_chords, game_remap_key, get_assigned_profile_id,
+    list_remapped_games, load_default_profile, load_profile, parse_chord_slot_key,
+    format_slot_binding, parse_slot_binding, profile_file_path, profiles_dir,
+    save_profile, suggest_profile_id, unassign_game,
 )
 
 # Re-export button constants for layout

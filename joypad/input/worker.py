@@ -1,0 +1,119 @@
+import os
+import subprocess
+import sys
+import time
+
+from joypad.input.log import remap_log, init_remap_log
+from joypad.input.engine import run_remap_loop, wait_for_game_exe_exit, game_process_alive
+from joypad.input.profiles import resolve_profile_path, load_profile, prepare_profile
+from joypad.input.watch import game_watch_targets
+
+
+def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe=None, watch_dir=None, parent_pid=None, log_enabled=False):
+    """Start remapping subprocess; returns Popen or None."""
+    if sys.platform != "win32" or not profile_path or not root_pid:
+        if log_enabled:
+            init_remap_log(base_dir or ".", enabled=True)
+            remap_log("start_remap_worker skipped platform=%s profile=%s pid=%s" % (sys.platform, profile_path, root_pid))
+        return None
+    log_dir = os.path.abspath(base_dir or ".")
+    launcher_pid = int(parent_pid or os.getpid())
+    worker_args = [
+        "--input-remap-worker",
+        "--profile",
+        os.path.abspath(profile_path),
+        "--pid",
+        str(int(root_pid)),
+        "--index",
+        str(int(user_index)),
+        "--log-dir",
+        log_dir,
+        "--parent-pid",
+        str(launcher_pid),
+    ]
+    if watch_exe:
+        worker_args.extend(["--watch-exe", watch_exe])
+    if watch_dir:
+        worker_args.extend(["--watch-dir", os.path.abspath(watch_dir)])
+    if log_enabled:
+        worker_args.append("--log")
+    if getattr(sys, "frozen", False):
+        cmd = [sys.executable] + worker_args
+    else:
+        cmd = [sys.executable, os.path.join(base_dir, "launcher.py")] + worker_args
+    try:
+        if log_enabled:
+            init_remap_log(log_dir, enabled=True)
+        proc = subprocess.Popen(
+            cmd,
+            shell=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+        )
+        remap_log("launcher spawned worker pid=%s game_pid=%s profile=%s" % (proc.pid, root_pid, profile_path))
+        remap_log("cmd: %s" % " ".join('"%s"' % c if " " in c else c for c in cmd))
+        return proc
+    except Exception as exc:
+        if log_enabled:
+            init_remap_log(log_dir, enabled=True)
+            remap_log("ERROR spawn worker: %s" % exc)
+        return None
+
+
+def stop_remap_worker(proc, timeout=2.0):
+    if not proc:
+        return
+    try:
+        proc.terminate()
+        proc.wait(timeout=timeout)
+    except Exception:
+        pass
+    if proc.poll() is not None:
+        return
+    try:
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=max(3.0, timeout + 1.0),
+                check=False,
+            )
+        else:
+            proc.kill()
+            proc.wait(timeout=timeout)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def run_remap_worker_main(argv=None):
+    import argparse
+
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == "--input-remap-worker":
+        argv = argv[1:]
+    parser = argparse.ArgumentParser(description="Joypad Launcher input remap worker")
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--pid", type=int, required=True)
+    parser.add_argument("--index", type=int, default=0)
+    parser.add_argument("--log-dir", default=".")
+    parser.add_argument("--log", action="store_true")
+    parser.add_argument("--watch-exe", default="")
+    parser.add_argument("--watch-dir", default="")
+    parser.add_argument("--parent-pid", type=int, default=0)
+    args = parser.parse_args(argv)
+    run_remap_loop(
+        args.profile,
+        args.pid,
+        user_index=args.index,
+        log_dir=args.log_dir,
+        log_enabled=args.log,
+        watch_exe=args.watch_exe or None,
+        watch_dir=args.watch_dir or None,
+        parent_pid=args.parent_pid or None,
+    )
