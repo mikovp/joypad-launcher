@@ -23,14 +23,14 @@
     "cdn_covers": true,
     "cdn_cache_folder": "cover_cdn_cache"
   },
-  "nsp_roms_folder": "\\\\ws.lan\\share\\NS_Roms",
-  "nsp_use_windows_association": true,
-  "nsp_emulator_path": "C:\\Program Files\\yuzu\\yuzu.exe",
-  "nsp_launch_args": "",
+  "twitch_roms_folder": "\\\\ws.lan\\share\\NS_Roms",
+  "twitch_use_windows_association": true,
+  "twitch_emulator_path": "C:\\Program Files\\yuzu\\yuzu.exe",
+  "twitch_launch_args": "",
   "fullscreen_args": {
     "steam": "-fullscreen",
     "epic": "-fullscreen",
-    "nsp": ""
+    "twitch": ""
   },
   "steam_skip_restore_ids": [
     1151340,

@@ -21,6 +21,7 @@ class AppState:
     list_content_height: int | None = None
     viewport_h: int | None = None
     max_scroll_y: int | None = None
+    list_scroll_y: int | None = None
 
     # --- tile-view geometry / selection ---
     tile_geom: dict | None = None
@@ -39,7 +40,7 @@ class AppState:
     settings_content_h: int | None = None
     overlay_scroll_y: int | None = None
     overlay_index: int | None = None
-    overlay_menu: list | None = None
+    overlay_menu: str | None = None  # None | "system" | "settings"
 
     # --- theme colors / fonts ---
     theme: dict | None = None

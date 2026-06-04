@@ -1,4 +1,3 @@
-import joypad.config.settings as settings_mod
 from joypad.config.settings import (
     _cycle_option,
     apply_setting_toggle,
@@ -23,7 +22,7 @@ def test_cycle_option_float_approx_match():
 
 
 def _no_save(monkeypatch):
-    monkeypatch.setattr(settings_mod, "save_config", lambda config: None)
+    monkeypatch.setattr("joypad.config.settings.toggle.save_config", lambda config: None)
 
 
 def test_apply_toggle_ddcci_power(monkeypatch):

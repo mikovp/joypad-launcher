@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import json
 import os
 import sys
+from typing import Any
 
+from joypad.config.twitch import ensure_twitch_config_keys
+from joypad.config.types import LauncherConfig
 from joypad.paths import _BASE_DIR, CONFIG_EXAMPLE, CONFIG_PATH
 
 
-def load_config():
+def load_config() -> dict[str, Any]:
     """Loads config.json or uses example and exits if not found."""
     path = CONFIG_PATH
     if not os.path.exists(path):
@@ -20,12 +25,13 @@ def load_config():
         raise FileNotFoundError(msg)
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
+    ensure_twitch_config_keys(data)
     if path == CONFIG_EXAMPLE and not os.path.exists(CONFIG_PATH):
         print("Using config.example.json. Copy to config.json and configure games.")
     return data
 
 
-def save_config(data):
+def save_config(data: LauncherConfig | dict[str, Any]) -> None:
     """Writes config to config.json next to launcher/exe."""
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)

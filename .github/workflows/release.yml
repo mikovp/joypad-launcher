@@ -29,6 +29,12 @@ jobs:
           pip install -r requirements-dev.txt
           pytest -q
 
+      - name: Lint
+        run: |
+          pip install -r requirements-dev.txt
+          ruff check .
+          mypy joypad/config/types.py joypad/config/twitch.py joypad/input/xinput.py joypad/ui/editor/layout.py joypad/ui/editor/input.py joypad/ui/editor/slots.py joypad/input/watch.py
+
       - name: Build EXE
         run: |
           python -m PyInstaller --onefile --windowed --name JoypadLauncher --collect-submodules joypad --collect-submodules ddcci --add-data "config.example.json;." --add-data "input_profiles;input_profiles" --add-data "assets;assets" --clean launcher.py

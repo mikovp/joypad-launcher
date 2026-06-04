@@ -14,6 +14,11 @@ BTN_RB = 5
 BTN_BACK = 6
 BTN_START = 7
 
+AXIS_LEFT_X = 0
+AXIS_LEFT_Y = 1  # up negative, down positive
+DEADZONE = 0.5
+AXIS_REPEAT_FRAMES = 18  # ~0.3s at 60 FPS — pause between selection steps
+
 STICK_MODES = ["none", "wasd", "arrows"]
 RIGHT_STICK_MODES = ["none", "mouse"]
 SLOT_BINDING_MODES = ("hold", "toggle")
