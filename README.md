@@ -66,6 +66,17 @@ More detail:
 | Users | [docs/README.md](docs/README.md) |
 | Developers | [docs/development.md](docs/development.md), [docs/architecture.md](docs/architecture.md) |
 
+## Roadmap
+
+Planned improvements (no fixed release dates):
+
+- [ ] **Cursor control in the launcher** — virtual mouse cursor driven by the gamepad
+- [ ] **Application localization** — UI strings and settings in multiple languages
+- [ ] **Game search and filtering** — find titles quickly in large libraries
+- [ ] **On-screen keyboard** — text input from the gamepad (needed for search without a physical keyboard)
+- [ ] **Favorites and recently played** — pin and revisit games from the main view
+- [ ] **More storefronts** — GOG Galaxy and other PC library sources
+
 ## License
 
 MIT
