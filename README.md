@@ -4,7 +4,7 @@
   <img src="anbernic_rg_40xx_h.jpg" alt="Joypad Launcher on Anbernic RG 40XX H" width="600">
 </p>
 
-A **gamepad-only** launcher for **Steam**, **Epic**, and **Twitch (.nsp)** games — no mouse or touchscreen required. Built for handhelds (Anbernic RG and similar) with **Moonlight + Sunshine**: pick a game on the stream client and launch with one button.
+A **gamepad-only** launcher for **Steam**, **Epic Games Store**, and **Twitch (.nsp)** games — no mouse or touchscreen required. Built for handhelds (Anbernic RG and similar) with **Moonlight + Sunshine**: pick a game on the stream client and launch with one button.
 
 ## Why not Steam Big Picture?
 
@@ -14,11 +14,11 @@ Joypad Launcher is the opposite: a **thin shell** around your collection. No sto
 
 | | Steam Big Picture | Joypad Launcher |
 |---|-------------------|-----------------|
-| Libraries | Steam only | Steam, Epic, Twitch (.nsp), manual entries |
+| Libraries | Steam only | Steam, Epic Games Store, Twitch (.nsp), manual entries |
 | Primary use | TV / couch PC | Moonlight + Sunshine streaming to a handheld |
 | UI scope | Full Steam ecosystem (store, community, friends, updates, …) | Your collection only — fast pick-and-play |
-| Epic & other stores | Not in the library | Same list and controls as Steam titles |
-| Controller in non-Steam games | Steam Input applies inside Steam; Epic launches separately | Built-in per-game gamepad → keyboard/mouse remap |
+| Epic Games Store & other stores | Not in the library | Same list and controls as Steam titles |
+| Controller in non-Steam games | Steam Input applies inside Steam; Epic Games Store titles launch separately | Built-in per-game gamepad → keyboard/mouse remap |
 | Input without a mouse | Works for Steam, but mixed-store setups often still need a mouse | Designed gamepad-only from the ground up |
 
 **In short:** Big Picture is Steam’s living-room mode, packed with Steam services. Joypad Launcher is a lightweight shell that does one job well — **get you from your collection to gameplay as quickly and comfortably as possible**.
@@ -26,7 +26,7 @@ Joypad Launcher is the opposite: a **thin shell** around your collection. No sto
 ## Features
 
 - Gamepad UI — D-pad, sticks, A/B, LB/RB, LT/RT
-- Auto-scan Steam and Epic (or manual game list)
+- Auto-scan Steam and Epic Games Store (or manual game list)
 - **List** and **tiles** views with cover art
 - Borderless fullscreen window
 - Gamepad → keyboard/mouse remap (Windows)
@@ -45,7 +45,7 @@ Planned improvements (no fixed release dates):
 
 ## Requirements
 
-- **Windows** (Steam, Epic, input remap)
+- **Windows** (Steam, Epic Games Store, input remap)
 - Python 3.8+ (or the bundled `.exe`)
 - Gamepad (Xbox, DualShock, etc. via pygame)
 - Steam and/or Epic Games Launcher installed
@@ -58,7 +58,7 @@ copy config.example.json config.json
 python launcher.py
 ```
 
-Set `"auto_scan": true` in `config.json` to detect Steam and Epic games automatically.
+Set `"auto_scan": true` in `config.json` to detect Steam and Epic Games Store games automatically.
 
 **Standalone exe:** run `build_exe.bat` → `dist\JoypadLauncher.exe` (place `config.json` next to the exe).
 
