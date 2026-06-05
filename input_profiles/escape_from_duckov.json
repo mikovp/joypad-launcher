@@ -30,6 +30,10 @@
       "hold_ms": 450,
       "center_cursor": true
     },
+    "x": {
+      "hold": "x",
+      "hold_ms": 450
+    },
     "lb": {
       "hold": "none",
       "hold_ms": 450
@@ -50,7 +54,7 @@
     "dpad_right": "i"
   },
   "stick_clicks": {
-    "left": "none",
+    "left": "shift",
     "right": "v"
   },
   "chords": {

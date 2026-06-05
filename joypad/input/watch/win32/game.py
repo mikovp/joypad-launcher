@@ -36,9 +36,12 @@ def game_process_alive(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids
 
 
 def wait_for_game_exe_exit(watch_exe, root_pid=None, watch_dir=None, grace=GAME_WATCH_GRACE, pump=None):
-    """Wait until no matching game process runs (survives Epic launcher restart)."""
+    """Wait until no matching game process runs (survives Epic launcher restart).
+
+    Returns True if pump reported user cancel (B / Escape).
+    """
     if not watch_exe and not watch_dir:
-        return
+        return False
     last_seen = time.time()
     last_activity = last_seen
     restart_logged = False
@@ -69,5 +72,8 @@ def wait_for_game_exe_exit(watch_exe, root_pid=None, watch_dir=None, grace=GAME_
             remap_log("launcher wait: %s gone for %.0fs" % (label, grace))
             break
         if pump:
-            pump()
+            if pump():
+                remap_log("launcher wait: %s cancelled" % label)
+                return True
         time.sleep(0.1 if pump else 0.5)
+    return False

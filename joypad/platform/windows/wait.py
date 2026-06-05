@@ -25,6 +25,8 @@ def wait_for_game_and_restore(
     if not process:
         return
 
+    cancelled = False
+
     if platform == "steam" and sys.platform == "win32":
         while process.poll() is None:
             try:
@@ -34,10 +36,14 @@ def wait_for_game_and_restore(
             child_pids = [p for p in pids if p != process.pid]
             if not child_pids:
                 break
-            _sleep_with_spinner(0.5, tick=tick)
+            if _sleep_with_spinner(0.5, tick=tick):
+                cancelled = True
+                break
     elif remap_proc and sys.platform == "win32":
         while remap_proc.poll() is None:
-            _sleep_with_spinner(0.5, tick=tick)
+            if _sleep_with_spinner(0.5, tick=tick):
+                cancelled = True
+                break
     elif platform == "epic" and (watch_exe or watch_dir) and sys.platform == "win32":
         from joypad.input.watch import wait_for_game_exe_exit
 
@@ -46,8 +52,11 @@ def wait_for_game_and_restore(
                 tick()
             else:
                 pygame.event.pump()
+            from joypad.platform.windows.hwnd.timed_pump import wait_cancel_pressed
 
-        wait_for_game_exe_exit(
+            return wait_cancel_pressed()
+
+        cancelled = wait_for_game_exe_exit(
             watch_exe,
             root_pid=process.pid,
             watch_dir=watch_dir,
@@ -55,6 +64,9 @@ def wait_for_game_and_restore(
         )
     else:
         while process.poll() is None:
-            _sleep_with_spinner(0.5, tick=tick)
+            if _sleep_with_spinner(0.5, tick=tick):
+                cancelled = True
+                break
 
     _bring_launcher_to_front(hwnd)
+    return cancelled

@@ -2,7 +2,7 @@
 
 
 def wait_for_game_exe_exit(watch_exe, root_pid=None, watch_dir=None, grace=None, pump=None):
-    pass
+    return False
 
 
 def game_process_alive(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids=None):
