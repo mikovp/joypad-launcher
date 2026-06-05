@@ -16,10 +16,9 @@ def update_scroll(state) -> None:
 def draw_frame(state) -> None:
     screen = state.screen
     h = state.h
+    screen.fill(state.bg_color)
     if state.bg_surface:
         screen.blit(state.bg_surface, (0, 0))
-    else:
-        screen.fill(state.bg_color)
     screen.blit(state.title_surface, (60, 40))
     hint_bottom = state.tile_geom["bottom_hint"] if state.ui_mode == "tiles" else state.list_bottom_margin
     screen.blit(state.hint_surface, (60, h - hint_bottom))
