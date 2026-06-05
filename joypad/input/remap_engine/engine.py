@@ -2,8 +2,6 @@
 
 from joypad.input.constants import (
     BTN_FACE,
-    BTN_LB,
-    BTN_RB,
     STICK_MODES,
     TRIGGER_THRESHOLD,
     XINPUT_DPAD,
@@ -80,7 +78,7 @@ class RemapEngine(RemapDigital):
                 self._mouse_sent += abs(dx) + abs(dy)
 
         buttons = self.profile.get("buttons") or {}
-        face_bindings, lb_chord_active, rb_chord_active = resolve_face_bindings(self.profile, pad)
+        face_bindings = resolve_face_bindings(self.profile, pad)
         for btn_idx, (binding, pressed) in face_bindings.items():
             slot_id = "btn_%s" % btn_idx
             btn_key = str(btn_idx)
@@ -100,15 +98,15 @@ class RemapEngine(RemapDigital):
         for btn_idx, mask in XINPUT_FACE.items():
             if btn_idx in BTN_FACE:
                 continue
-            if btn_idx == BTN_LB and lb_chord_active:
-                self._apply_digital("btn_%s" % btn_idx, buttons.get(str(BTN_LB), "none"), False)
-                continue
-            if btn_idx == BTN_RB and rb_chord_active:
-                self._apply_digital("btn_%s" % btn_idx, buttons.get(str(BTN_RB), "none"), False)
-                continue
-            binding = buttons.get(str(btn_idx), "none")
+            slot_id = "btn_%s" % btn_idx
+            btn_key = str(btn_idx)
+            tap_binding = buttons.get(btn_key, "none")
+            hold_cfg = self.button_holds.get(btn_key)
             pressed = bool(pad.wButtons & mask)
-            self._apply_digital("btn_%s" % btn_idx, binding, pressed)
+            if hold_cfg and tap_binding != "none":
+                self._apply_with_hold(slot_id, tap_binding, pressed, hold_cfg)
+            else:
+                self._apply_digital(slot_id, tap_binding, pressed)
 
         dpad_map = self.profile.get("dpad") or {}
         for dkey, mask in XINPUT_DPAD.items():

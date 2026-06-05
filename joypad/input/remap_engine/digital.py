@@ -58,7 +58,10 @@ class RemapDigital(RemapOutput):
             elif state["mode"] == "hold":
                 self._apply_digital(slot_id + "_hold", hold_binding, True)
         else:
-            if state["mode"] == "waiting":
+            elapsed_ms = 0.0
+            if state["start"] is not None:
+                elapsed_ms = (time.perf_counter() - state["start"]) * 1000.0
+            if state["mode"] == "waiting" and elapsed_ms < hold_ms:
                 if hold_cfg.get("center_cursor"):
                     mouse_center_screen()
                 self._apply_digital(slot_id + "_tap", tap_binding, True)

@@ -29,6 +29,14 @@
       "hold": "tab",
       "hold_ms": 450,
       "center_cursor": true
+    },
+    "lb": {
+      "hold": "none",
+      "hold_ms": 450
+    },
+    "rb": {
+      "hold": "none",
+      "hold_ms": 450
     }
   },
   "triggers": {
@@ -42,10 +50,7 @@
     "dpad_right": "i"
   },
   "stick_clicks": {
-    "left": {
-      "binding": "shift",
-      "mode": "toggle"
-    },
+    "left": "none",
     "right": "v"
   },
   "chords": {

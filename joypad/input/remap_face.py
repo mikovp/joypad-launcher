@@ -10,8 +10,6 @@ def resolve_face_bindings(profile, pad):
     chords = ensure_chords(profile)
     lb_held = bool(pad.wButtons & XINPUT_FACE[BTN_LB])
     rb_held = bool(pad.wButtons & XINPUT_FACE[BTN_RB])
-    lb_chord_active = False
-    rb_chord_active = False
     resolved = {}
 
     for btn_idx in BTN_FACE:
@@ -26,14 +24,12 @@ def resolve_face_bindings(profile, pad):
             chord = (chords.get("lb") or {}).get(face_key, "none")
             if chord and chord != "none":
                 binding = chord
-                lb_chord_active = True
         if binding is None and rb_held:
             chord = (chords.get("rb") or {}).get(face_key, "none")
             if chord and chord != "none":
                 binding = chord
-                rb_chord_active = True
         if binding is None:
             binding = buttons.get(face_key, "none")
         resolved[btn_idx] = (binding, True)
 
-    return resolved, lb_chord_active, rb_chord_active
+    return resolved
