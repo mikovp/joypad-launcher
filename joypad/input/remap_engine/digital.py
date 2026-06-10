@@ -8,6 +8,18 @@ from joypad.input.sendinput import mouse_center_screen, mouse_wheel
 
 
 class RemapDigital(RemapOutput):
+    @staticmethod
+    def _center_cursor_on_tap(hold_cfg):
+        if "center_cursor_on_tap" in hold_cfg:
+            return bool(hold_cfg["center_cursor_on_tap"])
+        if hold_cfg.get("center_cursor_on_hold"):
+            return False
+        return bool(hold_cfg.get("center_cursor"))
+
+    @staticmethod
+    def _center_cursor_on_hold(hold_cfg):
+        return bool(hold_cfg.get("center_cursor_on_hold"))
+
     def _apply_digital(self, slot_id, binding, pressed):
         was = self._prev_digital.get(slot_id, False)
         if binding in ("mouse_wheel_up", "mouse_wheel_down"):
@@ -57,13 +69,13 @@ class RemapDigital(RemapOutput):
             if state["mode"] == "waiting" and elapsed_ms >= hold_ms and hold_binding != "none":
                 state["mode"] = "hold"
                 self._apply_digital(slot_id + "_hold", hold_binding, True)
-                if hold_cfg.get("center_cursor"):
+                if self._center_cursor_on_hold(hold_cfg):
                     delay_ms = max(0, int(hold_cfg.get("center_cursor_delay_ms", 200)))
                     state["center_at"] = time.perf_counter() + delay_ms / 1000.0
                     state["centered"] = False
             elif state["mode"] == "hold":
                 self._apply_digital(slot_id + "_hold", hold_binding, True)
-                if hold_cfg.get("center_cursor") and not state.get("centered"):
+                if self._center_cursor_on_hold(hold_cfg) and not state.get("centered"):
                     center_at = state.get("center_at")
                     if center_at is not None and time.perf_counter() >= center_at:
                         mouse_center_screen()
@@ -73,7 +85,7 @@ class RemapDigital(RemapOutput):
             if state["start"] is not None:
                 elapsed_ms = (time.perf_counter() - state["start"]) * 1000.0
             if state["mode"] == "waiting" and elapsed_ms < hold_ms:
-                if hold_cfg.get("center_cursor"):
+                if self._center_cursor_on_tap(hold_cfg):
                     mouse_center_screen()
                 self._apply_digital(slot_id + "_tap", tap_binding, True)
                 self._apply_digital(slot_id + "_tap", tap_binding, False)

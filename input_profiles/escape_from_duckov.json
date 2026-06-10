@@ -24,7 +24,7 @@
     "a": {
       "hold": "u",
       "hold_ms": 450,
-      "center_cursor": true
+      "center_cursor_on_hold": true
     },
     "b": {
       "hold": "tab",
@@ -34,7 +34,7 @@
     "x": {
       "hold": "x",
       "hold_ms": 450,
-      "center_cursor": true
+      "center_cursor_on_hold": true
     },
     "lb": {
       "hold": "none",
