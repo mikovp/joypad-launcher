@@ -40,6 +40,7 @@ class RemapEngine(RemapDigital):
         self._mouse_sent = 0
         self._last_rx = 0.0
         self._last_ry = 0.0
+        self._pending_cursor_center_at = None
 
     def tick(self, pad):
         if pad is None:
@@ -125,6 +126,7 @@ class RemapEngine(RemapDigital):
         rt = triggers.get("right", "none")
         self._apply_digital("trigger_left", lt, pad.bLeftTrigger >= TRIGGER_THRESHOLD)
         self._apply_digital("trigger_right", rt, pad.bRightTrigger >= TRIGGER_THRESHOLD)
+        self._process_pending_cursor_center()
 
     def release_all(self):
         for vk, count in list(self._key_refcount.items()):
@@ -141,3 +143,4 @@ class RemapEngine(RemapDigital):
         self._hold_state.clear()
         self._toggle_state.clear()
         self._active_face_binding.clear()
+        self._pending_cursor_center_at = None

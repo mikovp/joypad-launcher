@@ -20,6 +20,23 @@ class RemapDigital(RemapOutput):
     def _center_cursor_on_hold(hold_cfg):
         return bool(hold_cfg.get("center_cursor_on_hold"))
 
+    def _schedule_center_cursor_after_hold(self, hold_cfg):
+        if not self._center_cursor_on_hold(hold_cfg):
+            return
+        delay_ms = max(0, int(hold_cfg.get("center_cursor_delay_ms", 200)))
+        deadline = time.perf_counter() + delay_ms / 1000.0
+        pending = getattr(self, "_pending_cursor_center_at", None)
+        if pending is None or deadline < pending:
+            self._pending_cursor_center_at = deadline
+
+    def _process_pending_cursor_center(self):
+        deadline = getattr(self, "_pending_cursor_center_at", None)
+        if deadline is None:
+            return
+        if time.perf_counter() >= deadline:
+            mouse_center_screen()
+            self._pending_cursor_center_at = None
+
     def _apply_digital(self, slot_id, binding, pressed):
         was = self._prev_digital.get(slot_id, False)
         if binding in ("mouse_wheel_up", "mouse_wheel_down"):
@@ -63,23 +80,13 @@ class RemapDigital(RemapOutput):
             if state["start"] is None:
                 state["start"] = time.perf_counter()
                 state["mode"] = "waiting"
-                state.pop("center_at", None)
-                state.pop("centered", None)
             elapsed_ms = (time.perf_counter() - state["start"]) * 1000.0
             if state["mode"] == "waiting" and elapsed_ms >= hold_ms and hold_binding != "none":
                 state["mode"] = "hold"
                 self._apply_digital(slot_id + "_hold", hold_binding, True)
-                if self._center_cursor_on_hold(hold_cfg):
-                    delay_ms = max(0, int(hold_cfg.get("center_cursor_delay_ms", 200)))
-                    state["center_at"] = time.perf_counter() + delay_ms / 1000.0
-                    state["centered"] = False
+                self._schedule_center_cursor_after_hold(hold_cfg)
             elif state["mode"] == "hold":
                 self._apply_digital(slot_id + "_hold", hold_binding, True)
-                if self._center_cursor_on_hold(hold_cfg) and not state.get("centered"):
-                    center_at = state.get("center_at")
-                    if center_at is not None and time.perf_counter() >= center_at:
-                        mouse_center_screen()
-                        state["centered"] = True
         else:
             elapsed_ms = 0.0
             if state["start"] is not None:
