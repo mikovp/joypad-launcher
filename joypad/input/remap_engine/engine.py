@@ -2,6 +2,8 @@
 
 from joypad.input.constants import (
     BTN_FACE,
+    BTN_LB,
+    BTN_RB,
     STICK_MODES,
     TRIGGER_THRESHOLD,
     XINPUT_DPAD,
@@ -41,6 +43,29 @@ class RemapEngine(RemapDigital):
         self._last_rx = 0.0
         self._last_ry = 0.0
         self._pending_cursor_center_at = None
+
+    def _any_face_pressed(self, pad):
+        return any(bool(pad.wButtons & XINPUT_FACE[btn_idx]) for btn_idx in BTN_FACE)
+
+    def _bumper_combo_active(self, pad):
+        combo_binding = self.profile.get("bumper_combo") or "none"
+        if combo_binding == "none":
+            return False, combo_binding
+        lb_pressed = bool(pad.wButtons & XINPUT_FACE[BTN_LB])
+        rb_pressed = bool(pad.wButtons & XINPUT_FACE[BTN_RB])
+        active = lb_pressed and rb_pressed and not self._any_face_pressed(pad)
+        return active, combo_binding
+
+    def _clear_bumper_hold_state(self, slot_id, hold_cfg):
+        state = self._hold_state.get(slot_id)
+        if not state:
+            return
+        if state.get("mode") == "hold" and hold_cfg:
+            hold_binding = hold_cfg.get("hold", "none")
+            if hold_binding != "none":
+                self._apply_digital(slot_id + "_hold", hold_binding, False)
+        state["start"] = None
+        state["mode"] = None
 
     def tick(self, pad):
         if pad is None:
@@ -96,6 +121,9 @@ class RemapEngine(RemapDigital):
             else:
                 self._apply_digital(slot_id, binding, pressed)
 
+        combo_active, combo_binding = self._bumper_combo_active(pad)
+        self._apply_digital("bumper_combo", combo_binding, combo_active)
+
         for btn_idx, mask in XINPUT_FACE.items():
             if btn_idx in BTN_FACE:
                 continue
@@ -104,6 +132,10 @@ class RemapEngine(RemapDigital):
             tap_binding = buttons.get(btn_key, "none")
             hold_cfg = self.button_holds.get(btn_key)
             pressed = bool(pad.wButtons & mask)
+            if combo_active and btn_idx in (BTN_LB, BTN_RB):
+                self._clear_bumper_hold_state(slot_id, hold_cfg)
+                self._apply_digital(slot_id, tap_binding, False)
+                continue
             if hold_cfg and tap_binding != "none":
                 self._apply_with_hold(slot_id, tap_binding, pressed, hold_cfg)
             else:

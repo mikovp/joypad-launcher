@@ -20,6 +20,7 @@
     "back": "none",
     "start": "none"
   },
+  "bumper_combo": "f1",
   "button_holds": {
     "a": {
       "hold": "u",
@@ -35,6 +36,10 @@
       "hold": "x",
       "hold_ms": 450,
       "center_cursor_on_hold": true
+    },
+    "y": {
+      "hold": "n",
+      "hold_ms": 450
     },
     "lb": {
       "hold": "none",
