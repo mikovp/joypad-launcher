@@ -7,7 +7,7 @@ from joypad.ui.views.list.dispatch import (
     nav_page,
     nav_vertical,
 )
-from joypad.ui.views.list.drawing import _hint_surfaces, draw_list_view
+from joypad.ui.views.list.drawing import _hint_surfaces, draw_list_view, footer_line_count
 from joypad.ui.views.list.layout import build_list_layout
 from joypad.ui.views.list.navigation import (
     _first_game_row_index,
@@ -20,6 +20,7 @@ from joypad.ui.views.list.navigation import (
 __all__ = [
     "_first_game_row_index",
     "_hint_surfaces",
+    "footer_line_count",
     "build_list_layout",
     "draw_list_view",
     "get_selected_item",

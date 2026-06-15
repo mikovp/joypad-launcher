@@ -27,6 +27,12 @@ def test_build_categorized_game_list_headers_then_games():
     assert items[1]["kind"] == "game"
     assert items[1]["game"]["name"] == "A"
 
+    items_with_login = launcher.build_categorized_game_list(
+        [{"name": "A", "platform": "steam"}],
+        "player1",
+    )
+    assert items_with_login[0]["title"] == "Steam: player1"
+
 
 def test_build_tile_sections_shape():
     secs = launcher.build_tile_sections([{"name": "A", "platform": "epic"}])

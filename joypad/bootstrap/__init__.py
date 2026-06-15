@@ -14,6 +14,7 @@ from joypad.config.theme import theme_from_config, ui_mode_from_theme
 from joypad.games.model import build_categorized_game_list, build_tile_sections
 from joypad.launch.session import LaunchSession
 from joypad.paths import _BASE_DIR
+from joypad.integrations.steam import active_steam_login, get_active_steam_account
 from joypad.platform.windows import get_steam_path
 from joypad.ui import overlay as ovl
 from joypad.ui.background import resolve_background_image
@@ -37,13 +38,17 @@ def bootstrap() -> BootResult:
     apply_startup_from_config(config, _BASE_DIR)
     games = collect_games(config)
 
-    list_items = build_categorized_game_list(games)
-    state.list_items = list_items
-    state.tile_sections = build_tile_sections(games)
-    state.game_row_numbers = _build_game_row_numbers(list_items)
-
     steam_path = get_steam_path(config)
     steam_dir = os.path.normpath(os.path.dirname(steam_path)) if steam_path else None
+    active = get_active_steam_account(steam_dir) if steam_dir else None
+    steam_active_login = active_steam_login(active)
+
+    list_items = build_categorized_game_list(games, steam_active_login)
+    state.list_items = list_items
+    state.tile_sections = build_tile_sections(games, steam_active_login)
+    state.game_row_numbers = _build_game_row_numbers(list_items)
+    state.steam_active_login = steam_active_login
+
     state.cover_cache = build_cover_cache(config, games, steam_dir)
 
     theme_cfg = config.get("theme") or {}

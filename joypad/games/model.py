@@ -7,7 +7,13 @@ from joypad.integrations.twitch import normalize_platform
 _PLATFORM = "twitch"
 
 
-def _game_sections(games):
+def _section_title(key, default_title, steam_active_login=None):
+    if key == "steam" and steam_active_login:
+        return "Steam: %s" % steam_active_login
+    return default_title
+
+
+def _game_sections(games, steam_active_login=None):
     """
     Group games by platform. Order: Steam → Epic → Twitch → Other.
     Returns [(section_title, [game, ...]), ...]; empty sections omitted.
@@ -29,26 +35,26 @@ def _game_sections(games):
     for key, title in sections:
         lst = buckets[key]
         if lst:
-            out.append((title, lst))
+            out.append((_section_title(key, title, steam_active_login), lst))
     other = buckets["_other"]
     if other:
         out.append(("Other", other))
     return out
 
 
-def build_categorized_game_list(games):
+def build_categorized_game_list(games, steam_active_login=None):
     """Flat list with category headers and game rows (list UI)."""
     items = []
-    for title, lst in _game_sections(games):
+    for title, lst in _game_sections(games, steam_active_login):
         items.append({"kind": "header", "title": title})
         for game in lst:
             items.append({"kind": "game", "game": game})
     return items
 
 
-def build_tile_sections(games):
+def build_tile_sections(games, steam_active_login=None):
     """Sections for tile grid UI: [{title, games}, ...]."""
-    return [{"title": title, "games": lst} for title, lst in _game_sections(games)]
+    return [{"title": title, "games": lst} for title, lst in _game_sections(games, steam_active_login)]
 
 
 def tile_selection_title(game):

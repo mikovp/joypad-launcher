@@ -72,6 +72,9 @@ class AppState:
     running: bool | None = None
     input_remap_session: Any = None  # joypad.ui.editor.InputRemapSession | None
 
+    steam_active_login: str | None = None
+    footer_lines: int | None = None
+
     # Read-only session data carried for the tile-view cluster (joypad.ui.views.tiles).
     config: dict | None = None
     cover_cache: Any = None      # joypad.covers.cache.CoverCache

@@ -68,6 +68,11 @@ def init_pygame_display(state: AppState, config: dict) -> Any:
     return hwnd
 
 
+def apply_footer_layout(state: AppState) -> None:
+    state.footer_lines = lst.footer_line_count(state)
+    state.list_bottom_margin = max(44, state.hint_line_h * state.footer_lines + 24)
+
+
 def init_fonts_and_layouts(state: AppState, config: dict) -> None:
     h = state.h
     state.font_title = pygame.font.SysFont("Segoe UI", state.font_size_title, bold=state.font_bold_title)
@@ -76,8 +81,8 @@ def init_fonts_and_layouts(state: AppState, config: dict) -> None:
     state.font_hint = pygame.font.SysFont("Segoe UI", state.font_size_hint, bold=state.font_bold_title)
 
     state.hint_line_h = state.font_hint.get_linesize()
+    apply_footer_layout(state)
     state.list_start_y = 36 + state.hint_line_h * 2
-    state.list_bottom_margin = max(44, state.hint_line_h + 24)
     state.list_line_skip = state.font_list.get_linesize() + 3
     state.margin_right = 52
     state.list_left = 80
@@ -99,6 +104,7 @@ def init_fonts_and_layouts(state: AppState, config: dict) -> None:
         state.hint_line_h,
         tile_scale=state.tile_scale,
         title_line_h=state.font_title.get_linesize(),
+        footer_lines=state.footer_lines,
     )
     state.tile_layout = []
     state.tile_all_games = []

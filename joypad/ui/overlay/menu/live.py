@@ -39,8 +39,10 @@ def reload_fonts_and_layout(state):
     state.font_hint = pygame.font.SysFont("Segoe UI", state.font_size_hint, bold=state.font_bold_title)
     state.line_h = max(36, int(state.font_size_list * 2))
     state.hint_line_h = state.font_hint.get_linesize()
+    from joypad.bootstrap.display import apply_footer_layout
+
+    apply_footer_layout(state)
     state.list_start_y = 36 + state.hint_line_h * 2
-    state.list_bottom_margin = max(44, state.hint_line_h + 24)
     state.list_line_skip = state.font_list.get_linesize() + 3
     state.title_surface, state.hint_surface = lst._hint_surfaces(state)
     tiles.rebuild_tile_geometry(state)

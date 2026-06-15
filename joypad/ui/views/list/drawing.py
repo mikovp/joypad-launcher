@@ -3,21 +3,36 @@
 import pygame
 
 
+def footer_line_count(state):
+    """Footer hint lines (controls only)."""
+    return 2
+
+
+def _compose_footer_surface(state, lines):
+    surfaces = [state.font_hint.render(line, True, state.title_color) for line in lines]
+    if not surfaces:
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
+    width = max(s.get_width() for s in surfaces)
+    gap = 2
+    height = sum(s.get_height() for s in surfaces) + gap * (len(surfaces) - 1)
+    combined = pygame.Surface((width, height), pygame.SRCALPHA)
+    y = 0
+    for surf in surfaces:
+        combined.blit(surf, (0, y))
+        y += surf.get_height() + gap
+    return combined
+
+
 def _hint_surfaces(state):
     if state.ui_mode == "tiles":
         title = state.font_hint.render("Pick a game (tiles)", True, state.title_color)
-        hint = state.font_hint.render(
-            "A — launch   B — menu   ←→↑↓   LB/RB — library (1st tile)   LT/RT — scroll",
-            True,
-            state.title_color,
-        )
+        controls = "A — launch   B — menu   ←→↑↓   LB/RB — library (1st tile)   LT/RT — scroll"
     else:
         title = state.font_hint.render("Select a game or action (gamepad or keyboard)", True, state.title_color)
-        hint = state.font_hint.render(
-            "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page",
-            True,
-            state.title_color,
-        )
+        controls = "A / Enter — launch   B / Esc — menu   ↑↓ row   PgUp/PgDn   LB/RB   LT/RT — page"
+
+    footer_lines = [controls]
+    hint = _compose_footer_surface(state, footer_lines)
     return title, hint
 
 
