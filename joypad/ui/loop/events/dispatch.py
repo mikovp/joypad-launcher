@@ -27,6 +27,8 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
     """Handle pygame events. Returns updated joysticks and whether to exit the app."""
     from joypad.ui.loop.joysticks import rescan_joysticks
 
+    menu_back_handled = False
+
     for event in events:
         if event.type == pygame.QUIT:
             state.running = False
@@ -64,22 +66,29 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
                         return joysticks, True
 
         if event.type == pygame.JOYBUTTONDOWN:
-            if state.overlay_menu:
-                if event.button == BTN_B or event.button == BTN_BACK:
+            btn = event.button
+            if btn == BTN_B or btn == BTN_BACK:
+                if menu_back_handled:
+                    continue
+                menu_back_handled = True
+                if state.overlay_menu:
                     ovl.overlay_back(state)
-                if event.button == BTN_A or event.button == BTN_START:
+                else:
+                    state.overlay_menu = "system"
+                    state.overlay_index = 0
+                continue
+
+            if state.overlay_menu:
+                if btn == BTN_A or btn == BTN_START:
                     ovl.overlay_confirm(state)
             else:
-                if event.button == BTN_A or event.button == BTN_START:
+                if btn == BTN_A or btn == BTN_START:
                     if on_launch():
                         state.running = False
                         return joysticks, True
-                if event.button == BTN_B or event.button == BTN_BACK:
-                    state.overlay_menu = "system"
-                    state.overlay_index = 0
-                elif event.button == BTN_LB:
+                elif btn == BTN_LB:
                     lst.nav_lb_rb(state, -1)
-                elif event.button == BTN_RB:
+                elif btn == BTN_RB:
                     lst.nav_lb_rb(state, 1)
 
         if event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_Y:
