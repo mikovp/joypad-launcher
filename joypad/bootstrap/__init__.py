@@ -27,7 +27,7 @@ class BootResult:
     launch: LaunchSession
 
 
-def bootstrap() -> BootResult:
+def bootstrap(force_power_off: bool = False) -> BootResult:
     """Load config, games, pygame, and UI state. Returns session ready for the main loop."""
     from ddcci import apply_startup_from_config, schedule_delayed_power_off
 
@@ -35,7 +35,7 @@ def bootstrap() -> BootResult:
     config = load_config()
     state.config = config
 
-    apply_startup_from_config(config, _BASE_DIR)
+    apply_startup_from_config(config, _BASE_DIR, force=force_power_off)
     games = collect_games(config)
 
     steam_path = get_steam_path(config)
@@ -66,7 +66,7 @@ def bootstrap() -> BootResult:
     state.background_image_path = resolve_background_image(config)
 
     hwnd = init_pygame_display(state, config)
-    schedule_delayed_power_off(config, _BASE_DIR)
+    schedule_delayed_power_off(config, _BASE_DIR, force=force_power_off)
     init_fonts_and_layouts(state, config)
 
     state.system_menu_items = SYSTEM_MENU_ITEMS

@@ -118,19 +118,19 @@ def power_off_monitors(
     return ok_any
 
 
-def apply_startup_from_config(config, base_dir=None):
+def apply_startup_from_config(config, base_dir=None, force=False):
     """Power off once immediately (before heavy launcher init)."""
     enabled, monitors, models, log_enabled = settings_from_config(config)
-    if enabled:
+    if enabled or force:
         power_off_monitors(
             monitors, models, base_dir, tag="immediate", log_enabled=log_enabled
         )
 
 
-def schedule_delayed_power_off(config, base_dir=None):
+def schedule_delayed_power_off(config, base_dir=None, force=False):
     """Power off again after delay — pygame flip often wakes the panel."""
     enabled, monitors, models, log_enabled = settings_from_config(config)
-    if not enabled:
+    if not enabled and not force:
         return
 
     delay = _delay_seconds(config)
@@ -143,3 +143,11 @@ def schedule_delayed_power_off(config, base_dir=None):
         )
 
     threading.Thread(target=_job, daemon=True).start()
+
+
+def power_off_from_config(config, base_dir=None):
+    """Power off monitors once using ddcci monitor/log settings from config."""
+    _, monitors, models, log_enabled = settings_from_config(config)
+    return power_off_monitors(
+        monitors, models, base_dir, tag="cli", log_enabled=log_enabled
+    )

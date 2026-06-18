@@ -9,6 +9,20 @@ Add Joypad Launcher as an application in Sunshine:
 | Command | `cmd /C path\to\JoypadLauncher.exe` |
 | Working Directory | `path\to\dist` |
 
+To turn the physical display off when streaming starts (ignores `ddcci.power_off_on_start` in config):
+
+| Field | Value |
+|-------|-------|
+| Command | `cmd /C path\to\JoypadLauncher.exe --power-off-display` |
+
+To only power off the display without opening the launcher UI (e.g. in **Do** before other steps):
+
+| Field | Value |
+|-------|-------|
+| **Do** | `cmd /C path\to\JoypadLauncher.exe --power-off-only` |
+
+Monitor selection, delay, and debug log still come from `config.json` → `ddcci`. Without these flags, display power-off follows `power_off_on_start` in settings.
+
 To build the exe, see [development.md](development.md).
 
 ### Do / Undo (example)

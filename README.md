@@ -30,6 +30,7 @@ Joypad Launcher is the opposite: a **thin shell** around your collection. No sto
 - **List** and **tiles** views with cover art
 - Borderless fullscreen window
 - Gamepad → keyboard/mouse remap (Windows)
+- DDC/CI monitor power-off on launch (optional; CLI flags for Sunshine)
 - Shutdown / reboot from the system menu
 
 ## Roadmap
@@ -80,6 +81,19 @@ Switch **List / Tiles**: Settings → Appearance → **View**.
 2. **auto_scan** — automatic game list.
 3. **theme** — colors, fonts, background, tile size.
 4. **input_remap** — gamepad profiles (editor in Settings).
+5. **ddcci** — turn the physical display off when a game starts (Settings → **Off on start**), or force it from Sunshine:
+
+```text
+JoypadLauncher.exe --power-off-display
+```
+
+Only power off without opening the UI (e.g. Sunshine **Do**):
+
+```text
+JoypadLauncher.exe --power-off-only
+```
+
+Without flags, display power-off follows the **Off on start** setting in config.
 
 More detail:
 

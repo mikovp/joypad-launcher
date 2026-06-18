@@ -110,6 +110,15 @@ Toggle CDN in Settings → Appearance. Optional `rawg_api_key` adds another fall
 | `delay_ms` | Delay before the command (ms). |
 | `log` | DDC/CI debug log. |
 
+CLI flags (exe / `launcher.py`):
+
+| Flag | Description |
+|------|-------------|
+| `--power-off-display` | Force display off on launch (Sunshine); ignores `power_off_on_start`. |
+| `--power-off-only` | Power off display and exit; no UI. Uses `ddcci` monitor/log settings. |
+
+Without flags, only `power_off_on_start: true` in config triggers power-off.
+
 ---
 
 ## `fullscreen_args`

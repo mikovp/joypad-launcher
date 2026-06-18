@@ -6,21 +6,22 @@ Joypad Launcher application entry point.
 import os
 import sys
 
-try:
-    import pygame
-except ImportError:
-    print("Install pygame: pip install pygame")
-    sys.exit(1)
-
 from joypad.bootstrap import bootstrap
+from joypad.cli import parse_launcher_cli
 from joypad.launch.session import make_on_launch, register_remap_cleanup
 from joypad.paths import _BASE_DIR
 from joypad.platform.windows import show_error_message
 from joypad.ui import loop as inp
 
 
-def run():
-    boot = bootstrap()
+def run(force_power_off: bool = False):
+    try:
+        import pygame
+    except ImportError:
+        print("Install pygame: pip install pygame")
+        sys.exit(1)
+
+    boot = bootstrap(force_power_off=force_power_off)
     state = boot.state
     launch = boot.launch
 
@@ -47,6 +48,16 @@ def run():
     pygame.quit()
 
 
+def _run_power_off_only() -> int:
+    from ddcci import power_off_from_config
+
+    from joypad.config.loader import load_config
+
+    config = load_config()
+    ok = power_off_from_config(config, _BASE_DIR)
+    return 0 if ok else 1
+
+
 def main(argv=None):
     argv = list(sys.argv if argv is None else argv)
     if len(argv) >= 2 and argv[1] == "--input-remap-worker":
@@ -54,8 +65,19 @@ def main(argv=None):
 
         run_remap_worker_main()
         return 0
+
+    cli = parse_launcher_cli(argv)
+    if cli.power_off_only:
+        try:
+            return _run_power_off_only()
+        except BaseException:
+            import traceback
+
+            traceback.print_exc()
+            return 1
+
     try:
-        run()
+        run(force_power_off=cli.force_power_off)
         return 0
     except BaseException:
         import traceback
