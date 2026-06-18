@@ -50,7 +50,6 @@ def run(force_power_off: bool = False):
 
 def _run_power_off_only() -> int:
     from ddcci import power_off_from_config
-
     from joypad.config.loader import load_config
 
     config = load_config()

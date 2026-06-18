@@ -12,9 +12,9 @@ from joypad.bootstrap.games import _build_game_row_numbers, collect_games
 from joypad.config.loader import load_config
 from joypad.config.theme import theme_from_config, ui_mode_from_theme
 from joypad.games.model import build_categorized_game_list, build_tile_sections
+from joypad.integrations.steam import active_steam_login, get_active_steam_account
 from joypad.launch.session import LaunchSession
 from joypad.paths import _BASE_DIR
-from joypad.integrations.steam import active_steam_login, get_active_steam_account
 from joypad.platform.windows import get_steam_path
 from joypad.ui import overlay as ovl
 from joypad.ui.background import resolve_background_image
