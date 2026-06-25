@@ -4,7 +4,7 @@ from joypad.config.loader import save_config
 from joypad.config.settings import apply_setting_toggle
 from joypad.launch.launcher import perform_system_action
 from joypad.paths import _BASE_DIR
-from joypad.ui.overlay.menu.layout import open_settings_overlay, rebuild_settings_layout, settings_first_row
+from joypad.ui.overlay.menu.layout import open_settings_overlay
 from joypad.ui.overlay.menu.live import apply_setting_live
 
 
