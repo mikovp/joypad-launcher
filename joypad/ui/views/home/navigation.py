@@ -80,3 +80,22 @@ def home_lb_rb(state, delta):
     f = state.home_focus
     if f and f["zone"] == "shelf":
         home_move(state, 0, delta)
+
+
+def home_confirm(state, on_launch):
+    f = state.home_focus
+    if not f:
+        return False
+    if f["zone"] in ("shelf", "hero"):
+        return bool(on_launch())
+    # zone == "rail"
+    dest = RAIL_ITEMS[_clamp(f["rail"], 0, len(RAIL_ITEMS) - 1)]
+    if dest == "home":
+        home_init_focus(state)
+    elif dest == "settings":
+        state.overlay_menu = "settings"
+        state.overlay_index = 0
+    elif dest == "power":
+        state.overlay_menu = "system"
+        state.overlay_index = 0
+    return False
