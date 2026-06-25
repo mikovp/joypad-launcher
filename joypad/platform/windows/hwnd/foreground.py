@@ -3,6 +3,7 @@
 import sys
 
 from joypad.platform.windows.hwnd.timed_pump import timed_pump
+from joypad.platform.windows.hwnd.zorder import place_launcher_on_monitor
 from joypad.platform.windows.process import get_process_and_descendant_pids
 
 
@@ -41,7 +42,7 @@ def bring_any_other_window_to_foreground(skip_hwnd):
     if not skip_hwnd or sys.platform != "win32":
         return
     try:
-        from ctypes import WINFUNCTYPE, c_bool, c_void_p, create_unicode_buffer, windll
+        from ctypes import WINFUNCTYPE, byref, c_bool, c_void_p, create_unicode_buffer, windll
         found_hwnd = [None]
 
         def enum_callback(hwnd, _lparam):
@@ -69,16 +70,59 @@ def bring_any_other_window_to_foreground(skip_hwnd):
 
 
 def bring_launcher_to_front(hwnd):
-    """Restores window from minimized and brings to foreground (Windows)."""
+    """Show launcher full-screen and move keyboard focus to it."""
     if not hwnd or sys.platform != "win32":
         return
     try:
         from ctypes import windll
-        SW_RESTORE = 9
-        windll.user32.ShowWindow(hwnd, SW_RESTORE)
-        windll.user32.SetForegroundWindow(hwnd)
+
+        user32 = windll.user32
+        kernel32 = windll.kernel32
+
+        user32.AllowSetForegroundWindow(kernel32.GetCurrentProcessId())
+        place_launcher_on_monitor(hwnd)
+
+        fg = user32.GetForegroundWindow()
+        if fg == hwnd:
+            return
+        if fg:
+            fg_thread = user32.GetWindowThreadProcessId(fg, None)
+            this_thread = kernel32.GetCurrentThreadId()
+            attached = False
+            if fg_thread and fg_thread != this_thread:
+                attached = bool(user32.AttachThreadInput(this_thread, fg_thread, True))
+            try:
+                user32.SetForegroundWindow(hwnd)
+            finally:
+                if attached:
+                    user32.AttachThreadInput(this_thread, fg_thread, False)
+        else:
+            user32.SetForegroundWindow(hwnd)
     except Exception:
         pass
+
+
+def restore_launcher_focus(hwnd, *, attempts=3, interval_s=0.12, pump=None) -> bool:
+    """Retry showing the launcher after a game closes."""
+    if not hwnd or sys.platform != "win32":
+        return False
+
+    import time
+
+    for attempt in range(max(1, attempts)):
+        if pump:
+            pump()
+        bring_launcher_to_front(hwnd)
+        try:
+            from ctypes import windll
+
+            if windll.user32.GetForegroundWindow() == hwnd:
+                return True
+        except Exception:
+            pass
+        if attempt + 1 < attempts:
+            time.sleep(interval_s)
+    return False
 
 
 def bring_game_to_foreground(process, attempts=12, tick=None):

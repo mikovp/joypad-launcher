@@ -1,8 +1,11 @@
 """Build the in-app settings menu structure."""
 
+import sys
+
 from joypad.config.settings.options import (
     _TILE_SCALE_DEFAULT,
     _background_enabled,
+    _gamepad_starter_autostart_on,
     _on_off,
     _steam_silent_on,
     _twitch_association_on,
@@ -53,6 +56,19 @@ def build_settings_menu(config):
         for key, label in rows:
             items.append({"kind": "setting", "key": key, "label": label})
     items.append({"kind": "header", "title": "Controller"})
+    if sys.platform == "win32":
+        on = _gamepad_starter_autostart_on(config)
+        if on:
+            label = "Launch on Back+Start: On"
+        else:
+            label = "Launch on Back+Start: Off (app closes when enabled)"
+        items.append(
+            {
+                "kind": "setting",
+                "key": "gamepad_starter_autostart",
+                "label": label,
+            }
+        )
     items.append(
         {
             "kind": "setting",

@@ -11,3 +11,4 @@ class LoopContext:
     trig_page_arm_lt: bool = True
     trig_page_arm_rt: bool = True
     frames_since_rescan: int = 0
+    xinput_prev_buttons: int = 0

@@ -27,19 +27,26 @@ def run(force_power_off: bool = False):
 
     clock = pygame.time.Clock()
     loop_ctx = inp.LoopContext()
-    joysticks = inp.rescan_joysticks()
+    joysticks = inp.rescan_joysticks(clear_events=True)
     stop_active_remap = register_remap_cleanup(launch.active_remap_proc)
     on_launch = make_on_launch(state, launch, loop_ctx)
+    use_xinput_gamepad = inp.launcher_uses_xinput()
 
     while state.running:
         joysticks = inp.maybe_rescan_joysticks(loop_ctx, joysticks)
         events = inp.get_events()
         if inp.handle_remap_session(state, events, loop_ctx, joysticks, clock):
             continue
-        joysticks, should_exit = inp.process_events(state, events, loop_ctx, joysticks, on_launch)
+        joysticks, should_exit = inp.process_events(
+            state, events, loop_ctx, joysticks, on_launch, use_xinput_gamepad=use_xinput_gamepad
+        )
         if should_exit:
             break
-        inp.poll_continuous_input(state, loop_ctx, joysticks)
+        if use_xinput_gamepad and not state.input_remap_session:
+            if inp.poll_xinput_input(state, loop_ctx, on_launch):
+                break
+        else:
+            inp.poll_continuous_input(state, loop_ctx, joysticks)
         inp.update_scroll(state)
         inp.draw_frame(state)
         clock.tick(60)
@@ -66,6 +73,10 @@ def main(argv=None):
         return 0
 
     cli = parse_launcher_cli(argv)
+    if cli.gamepad_starter:
+        from joypad.starter import run_gamepad_starter
+
+        return run_gamepad_starter()
     if cli.power_off_only:
         try:
             return _run_power_off_only()
@@ -91,3 +102,8 @@ def main(argv=None):
         traceback.print_exc()
         show_error_message("Launch error.\nDetails written to:\n%s" % log_path)
         return 1
+    finally:
+        if sys.platform == "win32":
+            from joypad.platform.windows.autostart import ensure_gamepad_starter_running
+
+            ensure_gamepad_starter_running()

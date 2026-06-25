@@ -23,11 +23,20 @@ from joypad.ui.loop.context import LoopContext
 from joypad.ui.views import list as lst
 
 
-def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: Callable[[], bool]) -> tuple[list, bool]:
+def process_events(
+    state,
+    events,
+    ctx: LoopContext,
+    joysticks: list,
+    on_launch: Callable[[], bool],
+    *,
+    use_xinput_gamepad: bool = False,
+) -> tuple[list, bool]:
     """Handle pygame events. Returns updated joysticks and whether to exit the app."""
     from joypad.ui.loop.joysticks import rescan_joysticks
 
     menu_back_handled = False
+    skip_gamepad = use_xinput_gamepad
 
     for event in events:
         if event.type == pygame.QUIT:
@@ -66,6 +75,8 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
                         return joysticks, True
 
         if event.type == pygame.JOYBUTTONDOWN:
+            if skip_gamepad:
+                continue
             btn = event.button
             if btn == BTN_B or btn == BTN_BACK:
                 if menu_back_handled:
@@ -92,6 +103,8 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
                     lst.nav_lb_rb(state, 1)
 
         if event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_Y:
+            if skip_gamepad:
+                continue
             if ctx.axis_held <= 0:
                 if state.overlay_menu:
                     if event.value < -DEADZONE:
@@ -108,6 +121,8 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
                         lst.nav_vertical(state, 1)
                         ctx.axis_held = AXIS_REPEAT_FRAMES
         elif event.type == pygame.JOYAXISMOTION and event.axis == AXIS_LEFT_X:
+            if skip_gamepad:
+                continue
             if not state.overlay_menu and ctx.axis_held <= 0:
                 if event.value < -DEADZONE:
                     lst.nav_horizontal(state, -1)
@@ -116,6 +131,8 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
                     lst.nav_horizontal(state, 1)
                     ctx.axis_held = AXIS_REPEAT_FRAMES
         elif event.type == pygame.JOYAXISMOTION:
+            if skip_gamepad:
+                continue
             if not state.overlay_menu and ctx.axis_held <= 0:
                 if event.axis == 5 and event.value > 0.72:
                     if ctx.trig_page_arm_rt:
@@ -132,6 +149,8 @@ def process_events(state, events, ctx: LoopContext, joysticks: list, on_launch: 
                 elif event.axis == 4 and event.value < 0.2:
                     ctx.trig_page_arm_lt = True
         if event.type == pygame.JOYHATMOTION and event.hat == 0:
+            if skip_gamepad:
+                continue
             if ctx.axis_held <= 0:
                 if state.overlay_menu:
                     if event.value[1] > 0:

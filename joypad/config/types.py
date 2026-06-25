@@ -46,6 +46,10 @@ class DdcciConfig(TypedDict, total=False):
     log: bool
 
 
+class GamepadStarterConfig(TypedDict, total=False):
+    autostart: bool
+
+
 class GameEntry(TypedDict, total=False):
     name: str
     platform: str
@@ -75,5 +79,6 @@ class LauncherConfig(TypedDict, total=False):
     input_remap: InputRemapConfig
     input_remap_games: dict[str, str]
     ddcci: DdcciConfig
+    gamepad_starter: GamepadStarterConfig
     rawg_api_key: str
     games: list[GameEntry | dict[str, Any]]

@@ -11,7 +11,7 @@ from joypad.app_state import AppState
 from joypad.config.settings import _TILE_SCALE_DEFAULT
 from joypad.config.theme import parse_tile_scale, scale_theme_fonts_for_screen
 from joypad.paths import _BASE_DIR
-from joypad.platform.windows import resize_launcher_window
+from joypad.platform.windows.hwnd.zorder import primary_monitor_rect, resize_launcher_window
 from joypad.ui.background import load_background_surface
 from joypad.ui.views import list as lst
 from joypad.ui.views import tiles
@@ -46,8 +46,7 @@ def init_pygame_display(state: AppState, config: dict) -> Any:
     pygame.init()
     pygame.joystick.init()
 
-    info = pygame.display.Info()
-    w, h = info.current_w, info.current_h
+    x, y, w, h = primary_monitor_rect()
     state.w = w
     state.h = h
     scale_theme_fonts_for_screen(state.theme, config.get("theme") or {}, h)
@@ -65,7 +64,30 @@ def init_pygame_display(state: AppState, config: dict) -> Any:
     state.bg_surface = load_background_surface(state.background_image_path, w, h)
     hwnd = pygame.display.get_wm_info().get("window") if sys.platform == "win32" else None
     resize_launcher_window(hwnd, w, h)
+    if hwnd:
+        from joypad.platform.windows.hwnd.foreground import bring_launcher_to_front
+
+        bring_launcher_to_front(hwnd)
+        for _ in range(5):
+            pygame.event.pump()
+            bring_launcher_to_front(hwnd)
     return hwnd
+
+
+def resync_launcher_display(state, hwnd) -> None:
+    """Match pygame/HWND to the current desktop after a game may have changed video mode."""
+    if sys.platform != "win32" or not hwnd:
+        return
+    pygame.event.pump()
+    x, y, w, h = primary_monitor_rect()
+    screen = pygame.display.get_surface()
+    if screen is None or screen.get_width() != w or screen.get_height() != h:
+        pygame.display.set_mode((w, h), pygame.NOFRAME)
+        state.screen = pygame.display.get_surface()
+    state.w = w
+    state.h = h
+    resize_launcher_window(hwnd, w, h)
+    pygame.mouse.set_visible(False)
 
 
 def apply_footer_layout(state: AppState) -> None:

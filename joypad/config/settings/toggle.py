@@ -11,6 +11,7 @@ from joypad.config.settings.options import (
     _TILE_SCALE_OPTIONS,
     _background_enabled,
     _cycle_option,
+    _gamepad_starter_autostart_on,
     _steam_silent_on,
     _twitch_association_on,
 )
@@ -93,6 +94,18 @@ def apply_setting_toggle(config, key):
     elif key == "input_remap_log":
         remap = config.setdefault("input_remap", {})
         remap["log"] = not bool(remap.get("log"))
+    elif key == "gamepad_starter_autostart":
+        import sys
+
+        if sys.platform != "win32":
+            return False
+        from joypad.platform.windows.autostart import set_gamepad_starter_autostart
+
+        enabled = not _gamepad_starter_autostart_on(config)
+        if not set_gamepad_starter_autostart(enabled):
+            return False
+        gs = config.setdefault("gamepad_starter", {})
+        gs["autostart"] = enabled
     else:
         return False
     save_config(config)

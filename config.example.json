@@ -46,5 +46,8 @@
     "delay_ms": 2000,
     "log": false
   },
+  "gamepad_starter": {
+    "autostart": false
+  },
   "games": []
 }

@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 
+from joypad.integrations._subprocess import subprocess_no_window_kw
 from joypad.input.log import init_remap_log, remap_log
 
 
@@ -48,6 +49,7 @@ def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
+            **subprocess_no_window_kw(),
         )
         remap_log("launcher spawned worker pid=%s game_pid=%s profile=%s" % (proc.pid, root_pid, profile_path))
         remap_log("cmd: %s" % " ".join('"%s"' % c if " " in c else c for c in cmd))
@@ -77,6 +79,7 @@ def stop_remap_worker(proc, timeout=2.0):
                 stderr=subprocess.DEVNULL,
                 timeout=max(3.0, timeout + 1.0),
                 check=False,
+                **subprocess_no_window_kw(),
             )
         else:
             proc.kill()

@@ -116,6 +116,13 @@ CLI flags (exe / `launcher.py`):
 |------|-------------|
 | `--power-off-display` | Force display off on launch (Sunshine); ignores `power_off_on_start`. |
 | `--power-off-only` | Power off display and exit; no UI. Uses `ddcci` monitor/log settings. |
+| `--gamepad-starter` | Background mode (dev / legacy single-exe): wait for **Back + Start**. Prefer **`JoypadStarter.exe`** in `dist/` for autostart — it launches `JoypadLauncher.exe` without PyInstaller temp-dir issues. Enable via Settings → **Autostart (Back+Start)**. |
+
+## `gamepad_starter`
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `autostart` | `false` | When toggled **On** in Settings, adds a Windows login item and starts a **headless** background listener (no window, no UI). Only **Back + Start** opens the launcher; the listener pauses while the UI is open. |
 
 Without flags, only `power_off_on_start: true` in config triggers power-off.
 

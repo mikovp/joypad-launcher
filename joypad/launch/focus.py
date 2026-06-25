@@ -19,6 +19,7 @@ def focus_launched_game(
     remap_proc,
     skip_restore,
     tick=None,
+    on_restore=None,
 ):
     """Focus game window, hide launcher, wait until game exits."""
     _yield_for_game_window(2.0, tick=tick)
@@ -42,4 +43,5 @@ def focus_launched_game(
             watch_dir=watch_dir,
             remap_proc=remap_proc,
             tick=tick,
+            on_restore=on_restore,
         )

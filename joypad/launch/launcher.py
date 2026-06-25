@@ -64,6 +64,11 @@ def try_launch_game(
         active_remap_proc[0] = remap_proc
 
     try:
+        def _restore_launcher() -> None:
+            from joypad.bootstrap.display import resync_launcher_display
+
+            resync_launcher_display(state, hwnd)
+
         focus_launched_game(
             process,
             platform,
@@ -73,6 +78,7 @@ def try_launch_game(
             remap_proc=remap_proc,
             skip_restore=skip_restore,
             tick=spinner_tick,
+            on_restore=_restore_launcher,
         )
     finally:
         stop_remap_worker(remap_proc)

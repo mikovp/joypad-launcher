@@ -1,4 +1,5 @@
 from joypad.cli import (
+    GAMEPAD_STARTER_FLAG,
     POWER_OFF_DISPLAY_FLAG,
     POWER_OFF_ONLY_FLAG,
     LauncherCli,
@@ -18,6 +19,11 @@ def test_parse_launcher_cli_force_power_off():
 def test_parse_launcher_cli_power_off_only():
     argv = ["JoypadLauncher.exe", POWER_OFF_ONLY_FLAG]
     assert parse_launcher_cli(argv) == LauncherCli(power_off_only=True)
+
+
+def test_parse_launcher_cli_gamepad_starter():
+    argv = ["JoypadLauncher.exe", GAMEPAD_STARTER_FLAG]
+    assert parse_launcher_cli(argv) == LauncherCli(gamepad_starter=True)
 
 
 def test_parse_launcher_cli_both_flags():

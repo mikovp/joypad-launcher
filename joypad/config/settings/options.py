@@ -47,3 +47,15 @@ def _twitch_association_on(config):
     if val is None:
         return sys.platform == "win32"
     return val
+
+
+def _gamepad_starter_autostart_on(config):
+    if sys.platform == "win32":
+        from joypad.platform.windows.autostart import (
+            is_gamepad_starter_autostart_registered,
+            is_gamepad_starter_running,
+        )
+
+        return is_gamepad_starter_autostart_registered() or is_gamepad_starter_running()
+    gs = config.get("gamepad_starter") or {}
+    return bool(gs.get("autostart"))

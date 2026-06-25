@@ -69,4 +69,11 @@ def apply_setting_live(state, key):
             state.cover_cache.prefetch_async(state.games)
     elif key == "steam_silent":
         state.steam_start_args = (state.config.get("steam_start_args") or "").strip() or None
+    elif key == "gamepad_starter_autostart":
+        from joypad.config.settings.options import _gamepad_starter_autostart_on
+
+        if _gamepad_starter_autostart_on(state.config):
+            state.overlay_menu = None
+            state.overlay_index = 0
+            state.running = False
     rebuild_settings_layout(state)

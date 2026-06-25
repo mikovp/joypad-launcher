@@ -1,10 +1,12 @@
 """Wait for game exit and restore launcher window."""
 
 import sys
+import time
 
 import pygame
 
-from joypad.platform.windows.hwnd import _bring_launcher_to_front, _sleep_with_spinner
+from joypad.platform.windows.hwnd import _sleep_with_spinner
+from joypad.platform.windows.hwnd.foreground import bring_launcher_to_front, restore_launcher_focus
 from joypad.platform.windows.process import get_process_and_descendant_pids
 
 _get_process_and_descendant_pids = get_process_and_descendant_pids
@@ -19,7 +21,7 @@ def _yield_for_game_window(seconds=2.0, tick=None):
 
 
 def wait_for_game_and_restore(
-    process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None, tick=None
+    process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None, tick=None, on_restore=None
 ):
     """Waits for game process to finish, then brings launcher to foreground."""
     if not process:
@@ -68,5 +70,21 @@ def wait_for_game_and_restore(
                 cancelled = True
                 break
 
-    _bring_launcher_to_front(hwnd)
+    def _pump_after_game() -> None:
+        if tick:
+            tick()
+        else:
+            pygame.event.pump()
+
+    _pump_after_game()
+    if cancelled:
+        if on_restore:
+            on_restore()
+        bring_launcher_to_front(hwnd)
+        return cancelled
+
+    time.sleep(0.3)
+    if on_restore:
+        on_restore()
+    restore_launcher_focus(hwnd, pump=_pump_after_game)
     return cancelled
