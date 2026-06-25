@@ -4,7 +4,7 @@ from joypad.config.loader import save_config
 from joypad.config.settings import apply_setting_toggle
 from joypad.launch.launcher import perform_system_action
 from joypad.paths import _BASE_DIR
-from joypad.ui.overlay.menu.layout import rebuild_settings_layout, settings_first_row
+from joypad.ui.overlay.menu.layout import open_settings_overlay, rebuild_settings_layout, settings_first_row
 from joypad.ui.overlay.menu.live import apply_setting_live
 
 
@@ -41,10 +41,7 @@ def overlay_confirm(state):
             state.overlay_menu = None
             state.overlay_index = 0
         elif key == "settings":
-            state.overlay_menu = "settings"
-            state.overlay_index = settings_first_row(state)
-            state.overlay_scroll_y = 0
-            rebuild_settings_layout(state)
+            open_settings_overlay(state)
         elif key == "input_remap_open":
             _open_input_remap(state)
         elif key == "exit":

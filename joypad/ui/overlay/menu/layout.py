@@ -29,5 +29,13 @@ def rebuild_settings_layout(state):
     state.settings_content_h = y_acc
 
 
+def open_settings_overlay(state):
+    """Open the settings overlay the canonical way: fresh layout, first selectable row, scroll reset."""
+    rebuild_settings_layout(state)
+    state.overlay_menu = "settings"
+    state.overlay_index = settings_first_row(state)
+    state.overlay_scroll_y = 0
+
+
 def overlay_items(state):
     return state.settings_menu_items if state.overlay_menu == "settings" else state.system_menu_items

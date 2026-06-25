@@ -24,6 +24,15 @@ from joypad.ui.views import home as hm
 from joypad.ui.views import list as lst
 
 
+def _home_confirm(state, on_launch):
+    """home_confirm, then finalize a rail-triggered settings open the canonical way."""
+    prev = state.overlay_menu
+    launched = hm.home_confirm(state, on_launch)
+    if state.overlay_menu == "settings" and prev != "settings":
+        ovl.open_settings_overlay(state)
+    return launched
+
+
 def process_events(
     state,
     events,
@@ -71,7 +80,7 @@ def process_events(
                 if event.key == pygame.K_PAGEDOWN:
                     lst.nav_page(state, 1)
                 if event.key == pygame.K_RETURN:
-                    launched = hm.home_confirm(state, on_launch) if state.ui_mode == "home" else on_launch()
+                    launched = _home_confirm(state, on_launch) if state.ui_mode == "home" else on_launch()
                     if launched:
                         state.running = False
                         return joysticks, True
@@ -96,7 +105,7 @@ def process_events(
                     ovl.overlay_confirm(state)
             else:
                 if btn == BTN_A or btn == BTN_START:
-                    launched = hm.home_confirm(state, on_launch) if state.ui_mode == "home" else on_launch()
+                    launched = _home_confirm(state, on_launch) if state.ui_mode == "home" else on_launch()
                     if launched:
                         state.running = False
                         return joysticks, True

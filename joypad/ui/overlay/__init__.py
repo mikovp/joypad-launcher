@@ -3,6 +3,7 @@
 from joypad.ui.overlay.menu import (
     apply_setting_live,
     draw_overlay,
+    open_settings_overlay,
     overlay_back,
     overlay_confirm,
     overlay_items,
@@ -24,6 +25,7 @@ __all__ = [
     "capture_launching_snapshot",
     "draw_launching_spinner_frame",
     "draw_overlay",
+    "open_settings_overlay",
     "overlay_back",
     "overlay_confirm",
     "overlay_items",
