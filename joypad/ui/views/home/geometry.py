@@ -21,7 +21,7 @@ def compute_home_geometry(w, h, hint_line_h, title_line_h):
         "x": content_x + margin,
         "y": shelf_y,
         "w": content_w - 2 * margin,
-        "h": max(120, h - shelf_y - margin),
+        "h": max(0, h - shelf_y - margin),
     }
 
     shelf_label_h = hint_line_h + 6

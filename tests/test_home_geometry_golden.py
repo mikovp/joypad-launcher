@@ -22,3 +22,10 @@ def test_rail_minimum_on_small_screen():
     g = compute_home_geometry(640, 480, hint_line_h=20, title_line_h=42)
     assert g["rail_w"] == 64
     assert g["tile_h"] >= 48
+
+
+def test_cramped_screen_keeps_shelf_area_within_bounds():
+    g = compute_home_geometry(480, 320, hint_line_h=26, title_line_h=120)
+    assert g["shelf_area"]["h"] >= 0
+    assert g["shelf_area"]["y"] + g["shelf_area"]["h"] <= 320
+    assert g["hero"]["y"] + g["hero"]["h"] <= 320
