@@ -20,6 +20,7 @@ from joypad.input.constants import (
 )
 from joypad.ui import overlay as ovl
 from joypad.ui.loop.context import LoopContext
+from joypad.ui.views import home as hm
 from joypad.ui.views import list as lst
 
 
@@ -70,7 +71,8 @@ def process_events(
                 if event.key == pygame.K_PAGEDOWN:
                     lst.nav_page(state, 1)
                 if event.key == pygame.K_RETURN:
-                    if on_launch():
+                    launched = hm.home_confirm(state, on_launch) if getattr(state, "ui_mode", None) == "home" else on_launch()
+                    if launched:
                         state.running = False
                         return joysticks, True
 
@@ -94,7 +96,8 @@ def process_events(
                     ovl.overlay_confirm(state)
             else:
                 if btn == BTN_A or btn == BTN_START:
-                    if on_launch():
+                    launched = hm.home_confirm(state, on_launch) if getattr(state, "ui_mode", None) == "home" else on_launch()
+                    if launched:
                         state.running = False
                         return joysticks, True
                 elif btn == BTN_LB:

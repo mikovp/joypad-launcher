@@ -3,6 +3,7 @@
 import pygame
 
 from joypad.ui import overlay as ovl
+from joypad.ui.views import home as hm
 from joypad.ui.views import list as lst
 from joypad.ui.views import tiles
 
@@ -17,17 +18,18 @@ def draw_frame(state) -> None:
     screen = state.screen
     h = state.h
     screen.fill(state.bg_color)
-    if state.bg_surface:
+    if state.bg_surface and state.ui_mode != "home":
         screen.blit(state.bg_surface, (0, 0))
     screen.blit(state.title_surface, (60, 40))
-    hint_bottom = state.tile_geom["bottom_hint"] if state.ui_mode == "tiles" else state.list_bottom_margin
-    screen.blit(state.hint_surface, (60, h - hint_bottom))
 
-    if state.ui_mode == "tiles":
+    if state.ui_mode == "home":
+        hm.draw_home_view(state)
+    elif state.ui_mode == "tiles":
+        screen.blit(state.hint_surface, (60, h - state.tile_geom["bottom_hint"]))
         tiles.draw_tiles_view(state)
     else:
+        screen.blit(state.hint_surface, (60, h - state.list_bottom_margin))
         lst.draw_list_view(state)
 
     ovl.draw_overlay(state)
-
     pygame.display.flip()

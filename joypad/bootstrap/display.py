@@ -133,3 +133,5 @@ def init_fonts_and_layouts(state: AppState, config: dict) -> None:
     state.tile_content_h = 0
     state.tile_snap_scroll = True
     tiles.rebuild_tile_layout(state)
+    from joypad.ui.views.home import rebuild_home
+    rebuild_home(state)
