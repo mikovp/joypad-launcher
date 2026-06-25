@@ -14,7 +14,8 @@ _RAIL_GLYPH = {"home": "⌂", "settings": "⚙", "power": "⏻"}
 
 
 def rebuild_home(state):
-    state.home_shelves = build_home_shelves(state.tile_sections)
+    sections = getattr(state, "tile_sections", None)
+    state.home_shelves = build_home_shelves(sections)
     state.home_geom = compute_home_geometry(
         state.w, state.h, state.font_hint.get_linesize(), state.font_title.get_linesize()
     )

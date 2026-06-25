@@ -53,3 +53,12 @@ def test_draw_home_view_empty_shelves(headless_state):
     headless_state.home_shelves = []
     nav.home_init_focus(headless_state)
     draw_home_view(headless_state)   # must not raise
+
+
+def test_draw_home_view_rebuilds_without_tile_sections(headless_state):
+    from joypad.ui.views.home.drawing import draw_home_view
+    headless_state.home_geom = None
+    headless_state.home_focus = None
+    if hasattr(headless_state, "tile_sections"):
+        del headless_state.tile_sections
+    draw_home_view(headless_state)  # must not raise
