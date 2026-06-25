@@ -33,6 +33,11 @@ class AppState:
     tile_pick: int | None = None
     tile_snap_scroll: bool | None = None
 
+    # --- home-view geometry / focus ---
+    home_geom: dict | None = None
+    home_shelves: list | None = None
+    home_focus: dict | None = None
+
     # --- settings / overlay ---
     settings_menu_items: list | None = None
     settings_cum_starts: list | None = None
