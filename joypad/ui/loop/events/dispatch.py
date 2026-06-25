@@ -71,7 +71,7 @@ def process_events(
                 if event.key == pygame.K_PAGEDOWN:
                     lst.nav_page(state, 1)
                 if event.key == pygame.K_RETURN:
-                    launched = hm.home_confirm(state, on_launch) if getattr(state, "ui_mode", None) == "home" else on_launch()
+                    launched = hm.home_confirm(state, on_launch) if state.ui_mode == "home" else on_launch()
                     if launched:
                         state.running = False
                         return joysticks, True
@@ -96,7 +96,7 @@ def process_events(
                     ovl.overlay_confirm(state)
             else:
                 if btn == BTN_A or btn == BTN_START:
-                    launched = hm.home_confirm(state, on_launch) if getattr(state, "ui_mode", None) == "home" else on_launch()
+                    launched = hm.home_confirm(state, on_launch) if state.ui_mode == "home" else on_launch()
                     if launched:
                         state.running = False
                         return joysticks, True

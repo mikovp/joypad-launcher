@@ -46,6 +46,7 @@ def _state(overlay_menu=None, overlay_index=0):
         running=True,
         system_menu_items=list(SYSTEM_MENU_ITEMS),
         settings_menu_items=[],
+        ui_mode="list",
     )
 
 
