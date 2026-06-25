@@ -32,7 +32,9 @@ def apply_setting_toggle(config, key):
         ddcci["delay_ms"] = _cycle_option(cur, _DDCCI_DELAY_OPTIONS)
     elif key == "ui_mode":
         theme = config.setdefault("theme", {})
-        theme["ui_mode"] = "tiles" if ui_mode_from_theme(theme) == "list" else "list"
+        order = ["home", "tiles", "list"]
+        cur = ui_mode_from_theme(theme)
+        theme["ui_mode"] = order[(order.index(cur) + 1) % len(order)]
     elif key == "tile_scale":
         theme = config.setdefault("theme", {})
         cur = parse_tile_scale(theme.get("tile_scale"), _TILE_SCALE_DEFAULT)

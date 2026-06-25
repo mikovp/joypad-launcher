@@ -3,15 +3,20 @@
 from joypad.config.theme.defaults import _TILE_SCALE_DEFAULT
 
 
+_UI_MODES = ("home", "tiles", "list")
+
+
 def ui_mode_from_theme(theme_section):
     v = (theme_section or {}).get("ui_mode")
-    if isinstance(v, str) and v.strip().lower() == "tiles":
-        return "tiles"
-    return "list"
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in _UI_MODES:
+            return s
+    return "home"
 
 
 def ui_mode_label(mode):
-    return "Tiles" if mode == "tiles" else "List"
+    return {"home": "Home", "tiles": "Tiles", "list": "List"}.get(mode, "Home")
 
 
 def parse_tile_scale(value, default=None):
