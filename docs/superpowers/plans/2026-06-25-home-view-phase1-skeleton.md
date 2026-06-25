@@ -15,6 +15,7 @@
 - **Original colors only.** Use the theme's existing `highlight_color`/`text_color`/`title_color`/`bg_color`; do NOT hardcode Xbox green. A teal accent, if any new color is needed, comes from `state.highlight_color`.
 - **Follow existing patterns:** dict-based geometry (like `tiles/geometry.py`), pure functions for testable logic, golden tests under `tests/test_*_golden.py` run via the project `.venv` (no system pip; see memory `dev-env-no-system-pip`).
 - **pygame import guard:** rendering code must tolerate `pygame is None` only where the codebase already does; new pure modules must NOT import pygame.
+- **Commit message style:** match the repo convention `[type] Capitalized imperative summary` (e.g. `[feat] Add home-view geometry`), NOT Conventional Commits `feat: …`. End each commit body with the `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer.
 
 ---
 
@@ -112,7 +113,7 @@ Expected: PASS (and existing theme/settings golden tests still green).
 
 ```bash
 git add joypad/config/theme/ui.py joypad/config/settings/toggle.py tests/test_home_ui_mode.py
-git commit -m "feat: recognize and default to 'home' ui_mode"
+git commit -m "[feat] Recognize and default to 'home' ui_mode"
 ```
 
 ---
@@ -209,7 +210,7 @@ Expected: PASS.
 
 ```bash
 git add joypad/ui/views/home/__init__.py joypad/ui/views/home/model.py tests/test_home_model_golden.py
-git commit -m "feat: build home-view shelves from sections + All shelf"
+git commit -m "[feat] Build home-view shelves from sections and All shelf"
 ```
 
 ---
@@ -330,7 +331,7 @@ Expected: PASS.
 
 ```bash
 git add joypad/ui/views/home/geometry.py tests/test_home_geometry_golden.py
-git commit -m "feat: home-view geometry (rail/hero/shelves)"
+git commit -m "[feat] Add home-view geometry (rail/hero/shelves)"
 ```
 
 ---
@@ -450,7 +451,7 @@ Expected: PASS.
 
 ```bash
 git add joypad/app_state.py joypad/ui/views/home/navigation.py tests/test_home_navigation.py
-git commit -m "feat: home-view focus model (init + selected game)"
+git commit -m "[feat] Add home-view focus model (init and selected game)"
 ```
 
 ---
@@ -598,7 +599,7 @@ Expected: PASS.
 
 ```bash
 git add joypad/ui/views/home/navigation.py tests/test_home_navigation.py
-git commit -m "feat: home-view directional movement + LB/RB"
+git commit -m "[feat] Add home-view directional movement and LB/RB"
 ```
 
 ---
@@ -696,7 +697,7 @@ Expected: PASS.
 
 ```bash
 git add joypad/ui/views/home/navigation.py tests/test_home_navigation.py
-git commit -m "feat: home-view confirm + rail activation"
+git commit -m "[feat] Add home-view confirm and rail activation"
 ```
 
 ---
@@ -950,7 +951,7 @@ Expected: PASS.
 
 ```bash
 git add joypad/ui/views/home/drawing.py joypad/ui/views/home/__init__.py tests/test_home_drawing_smoke.py
-git commit -m "feat: home-view rendering (rail/hero/shelves)"
+git commit -m "[feat] Add home-view rendering (rail/hero/shelves)"
 ```
 
 ---
@@ -1171,7 +1172,7 @@ Run: `.venv/bin/python launcher.py` with `"ui_mode": "home"` in `config.json` th
 git add joypad/ui/loop/frame.py joypad/ui/views/list/dispatch.py \
         joypad/ui/loop/events/dispatch.py joypad/bootstrap/display.py \
         tests/test_home_integration.py
-git commit -m "feat: wire home view into loop, dispatch, and bootstrap"
+git commit -m "[feat] Wire home view into loop, dispatch, and bootstrap"
 ```
 
 ---
