@@ -42,7 +42,7 @@ def bring_any_other_window_to_foreground(skip_hwnd):
     if not skip_hwnd or sys.platform != "win32":
         return
     try:
-        from ctypes import WINFUNCTYPE, byref, c_bool, c_void_p, create_unicode_buffer, windll
+        from ctypes import WINFUNCTYPE, c_bool, c_void_p, create_unicode_buffer, windll
         found_hwnd = [None]
 
         def enum_callback(hwnd, _lparam):

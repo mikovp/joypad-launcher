@@ -4,8 +4,8 @@ import os
 import subprocess
 import sys
 
-from joypad.integrations._subprocess import subprocess_no_window_kw
 from joypad.input.log import init_remap_log, remap_log
+from joypad.integrations._subprocess import subprocess_no_window_kw
 
 
 def start_remap_worker(

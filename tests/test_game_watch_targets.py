@@ -1,6 +1,6 @@
 """Tests for game exit watch targets."""
 
-from joypad.input.watch.targets import game_watch_title, game_watch_targets
+from joypad.input.watch.targets import game_watch_targets, game_watch_title
 
 
 def test_game_watch_targets_epic():
