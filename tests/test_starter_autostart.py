@@ -79,6 +79,7 @@ def test_apply_toggle_gamepad_starter_autostart_registry_failure(monkeypatch):
 
 
 def test_ensure_gamepad_starter_running_spawns_when_missing(monkeypatch):
+    monkeypatch.setattr("sys.platform", "win32")
     monkeypatch.setattr(
         "joypad.platform.windows.autostart.is_gamepad_starter_autostart_registered",
         lambda: True,
@@ -106,6 +107,7 @@ def test_ensure_gamepad_starter_running_spawns_when_missing(monkeypatch):
 
 
 def test_ensure_gamepad_starter_running_skips_when_running(monkeypatch):
+    monkeypatch.setattr("sys.platform", "win32")
     monkeypatch.setattr(
         "joypad.platform.windows.autostart.is_gamepad_starter_autostart_registered",
         lambda: True,

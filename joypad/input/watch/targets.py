@@ -1,7 +1,7 @@
 """Game watch target resolution for remap worker and launcher exit detection."""
 
 
-import os
+import ntpath
 
 
 def game_watch_targets(game):
@@ -11,7 +11,7 @@ def game_watch_targets(game):
     exe_path = game.get("exe_path")
     if not exe_path:
         return None, None
-    return os.path.basename(exe_path), os.path.dirname(os.path.abspath(exe_path))
+    return ntpath.basename(exe_path), ntpath.dirname(exe_path)
 
 
 def game_watch_title(game):
