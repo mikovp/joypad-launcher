@@ -22,6 +22,7 @@ def watch_should_exit(
     watch_dir,
     watch_label,
     state,
+    watch_title=None,
 ):
     """Update watch state. Returns True when the worker should stop."""
     last_watch_check = state["last_watch_check"]
@@ -30,7 +31,13 @@ def watch_should_exit(
             state["cached_dir_pids"] = _find_pids_in_directory(watch_dir, watch_exe)
             state["last_dir_scan"] = now
         alive = _alive_pids(
-            _active_game_pids(root_pid, watch_exe, watch_dir, state["cached_dir_pids"])
+            _active_game_pids(
+                root_pid,
+                watch_exe,
+                watch_dir,
+                state["cached_dir_pids"],
+                watch_title,
+            )
         )
         if alive:
             state["last_seen"] = now
@@ -52,7 +59,7 @@ def watch_should_exit(
     return False
 
 
-def new_watch_state(watch_exe, watch_dir):
+def new_watch_state(watch_exe, watch_dir, watch_title=None):
     now = time.time()
     return {
         "last_watch_check": 0.0,
@@ -61,5 +68,5 @@ def new_watch_state(watch_exe, watch_dir):
         "last_seen": now,
         "last_activity": now,
         "restart_logged": False,
-        "watch_label": watch_exe or os.path.basename(watch_dir or "game"),
+        "watch_label": watch_exe or watch_title or os.path.basename(watch_dir or "game"),
     }

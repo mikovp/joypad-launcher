@@ -7,9 +7,6 @@ import pygame
 
 from joypad.platform.windows.hwnd import _sleep_with_spinner
 from joypad.platform.windows.hwnd.foreground import bring_launcher_to_front, restore_launcher_focus
-from joypad.platform.windows.process import get_process_and_descendant_pids
-
-_get_process_and_descendant_pids = get_process_and_descendant_pids
 
 
 def _yield_for_game_window(seconds=2.0, tick=None):
@@ -20,51 +17,59 @@ def _yield_for_game_window(seconds=2.0, tick=None):
         _sleep_with_spinner(step_s, tick=tick)
 
 
+def _launch_root_pid(process):
+    if process is None:
+        return None
+    try:
+        return process.pid if process.poll() is None else None
+    except Exception:
+        return getattr(process, "pid", None)
+
+
+def _pump_with_cancel(tick):
+    if tick:
+        tick()
+    else:
+        pygame.event.pump()
+    from joypad.platform.windows.hwnd.timed_pump import wait_cancel_pressed
+
+    return wait_cancel_pressed()
+
+
 def wait_for_game_and_restore(
-    process, hwnd, platform=None, watch_exe=None, watch_dir=None, remap_proc=None, tick=None, on_restore=None
+    process,
+    hwnd,
+    platform=None,
+    watch_exe=None,
+    watch_dir=None,
+    watch_title=None,
+    remap_proc=None,
+    tick=None,
+    on_restore=None,
 ):
-    """Waits for game process to finish, then brings launcher to foreground."""
-    if not process:
-        return
+    """Waits for the game process to finish, then brings launcher to foreground."""
+    has_watch = bool(watch_exe or watch_dir or watch_title)
+    if process is None and not has_watch:
+        return False
 
     cancelled = False
 
-    if platform == "steam" and sys.platform == "win32":
-        while process.poll() is None:
-            try:
-                pids = _get_process_and_descendant_pids(process.pid)
-            except Exception:
-                pids = [process.pid]
-            child_pids = [p for p in pids if p != process.pid]
-            if not child_pids:
-                break
-            if _sleep_with_spinner(0.5, tick=tick):
-                cancelled = True
-                break
+    if has_watch and sys.platform == "win32":
+        from joypad.input.watch import wait_for_game_exe_exit
+
+        cancelled = wait_for_game_exe_exit(
+            watch_exe,
+            root_pid=_launch_root_pid(process),
+            watch_dir=watch_dir,
+            watch_title=watch_title,
+            pump=lambda: _pump_with_cancel(tick),
+        )
     elif remap_proc and sys.platform == "win32":
         while remap_proc.poll() is None:
             if _sleep_with_spinner(0.5, tick=tick):
                 cancelled = True
                 break
-    elif platform == "epic" and (watch_exe or watch_dir) and sys.platform == "win32":
-        from joypad.input.watch import wait_for_game_exe_exit
-
-        def _pump():
-            if tick:
-                tick()
-            else:
-                pygame.event.pump()
-            from joypad.platform.windows.hwnd.timed_pump import wait_cancel_pressed
-
-            return wait_cancel_pressed()
-
-        cancelled = wait_for_game_exe_exit(
-            watch_exe,
-            root_pid=process.pid,
-            watch_dir=watch_dir,
-            pump=_pump,
-        )
-    else:
+    elif process is not None:
         while process.poll() is None:
             if _sleep_with_spinner(0.5, tick=tick):
                 cancelled = True

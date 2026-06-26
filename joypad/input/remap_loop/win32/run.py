@@ -19,6 +19,7 @@ def run_remap_loop(
     log_enabled=False,
     watch_exe=None,
     watch_dir=None,
+    watch_title=None,
     parent_pid=None,
 ):
     engine, user_index = startup_remap_loop(
@@ -28,9 +29,9 @@ def run_remap_loop(
         return
 
     ticks = 0
-    state = new_watch_state(watch_exe, watch_dir)
+    state = new_watch_state(watch_exe, watch_dir, watch_title)
     state.update(new_status_state())
-    use_watch = bool(watch_exe or watch_dir)
+    use_watch = bool(watch_exe or watch_dir or watch_title)
     last_parent_check = 0.0
 
     try:
@@ -45,7 +46,9 @@ def run_remap_loop(
                     remap_log("worker exit: launcher pid %s gone" % parent_pid)
                     break
                 last_parent_check = now
-            if watch_should_exit(now, use_watch, root_pid, watch_exe, watch_dir, state["watch_label"], state):
+            if watch_should_exit(
+                now, use_watch, root_pid, watch_exe, watch_dir, state["watch_label"], state, watch_title
+            ):
                 break
 
             engine.tick(pad)

@@ -20,6 +20,7 @@ def run_remap_worker_main(argv=None):
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--watch-exe", default="")
     parser.add_argument("--watch-dir", default="")
+    parser.add_argument("--watch-title", default="")
     parser.add_argument("--parent-pid", type=int, default=0)
     args = parser.parse_args(argv)
     run_remap_loop(
@@ -30,5 +31,6 @@ def run_remap_worker_main(argv=None):
         log_enabled=args.log,
         watch_exe=args.watch_exe or None,
         watch_dir=args.watch_dir or None,
+        watch_title=args.watch_title or None,
         parent_pid=args.parent_pid or None,
     )

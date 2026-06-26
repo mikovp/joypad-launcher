@@ -5,7 +5,7 @@ import sys
 
 from joypad.input.log import init_remap_log, remap_log, remap_log_enabled
 from joypad.input.profiles import game_remap_key, resolve_profile_path
-from joypad.input.watch import game_watch_targets
+from joypad.input.watch import game_watch_targets, game_watch_title
 from joypad.input.worker import start_remap_worker, stop_remap_worker
 from joypad.launch.focus import focus_launched_game
 from joypad.launch.start import start_game_process
@@ -51,6 +51,7 @@ def try_launch_game(
     skip_restore = started.skip_restore
     remap_proc = None
     watch_exe, watch_dir = game_watch_targets(g)
+    watch_title = game_watch_title(g)
     if profile_path:
         remap_proc = start_remap_worker(
             profile_path,
@@ -58,6 +59,7 @@ def try_launch_game(
             _BASE_DIR,
             watch_exe=watch_exe,
             watch_dir=watch_dir,
+            watch_title=watch_title,
             parent_pid=os.getpid(),
             log_enabled=remap_log_enabled(config),
         )
@@ -75,6 +77,7 @@ def try_launch_game(
             hwnd=hwnd,
             watch_exe=watch_exe,
             watch_dir=watch_dir,
+            watch_title=watch_title,
             remap_proc=remap_proc,
             skip_restore=skip_restore,
             tick=spinner_tick,

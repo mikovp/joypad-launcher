@@ -8,7 +8,17 @@ from joypad.integrations._subprocess import subprocess_no_window_kw
 from joypad.input.log import init_remap_log, remap_log
 
 
-def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe=None, watch_dir=None, parent_pid=None, log_enabled=False):
+def start_remap_worker(
+    profile_path,
+    root_pid,
+    base_dir,
+    user_index=0,
+    watch_exe=None,
+    watch_dir=None,
+    watch_title=None,
+    parent_pid=None,
+    log_enabled=False,
+):
     """Start remapping subprocess; returns Popen or None."""
     if sys.platform != "win32" or not profile_path or not root_pid:
         if log_enabled:
@@ -34,6 +44,8 @@ def start_remap_worker(profile_path, root_pid, base_dir, user_index=0, watch_exe
         worker_args.extend(["--watch-exe", watch_exe])
     if watch_dir:
         worker_args.extend(["--watch-dir", os.path.abspath(watch_dir)])
+    if watch_title:
+        worker_args.extend(["--watch-title", watch_title])
     if log_enabled:
         worker_args.append("--log")
     if getattr(sys, "frozen", False):

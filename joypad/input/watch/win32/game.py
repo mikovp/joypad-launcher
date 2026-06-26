@@ -13,7 +13,7 @@ from joypad.input.watch.win32.find import (
 from joypad.input.watch.win32.process import alive_pids, any_pid_alive, get_process_tree_pids
 
 
-def active_game_pids(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids=None):
+def active_game_pids(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids=None, watch_title=None):
     pids = set()
     if root_pid:
         pids |= get_process_tree_pids(root_pid)
@@ -27,34 +27,43 @@ def active_game_pids(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids=N
             pids |= cached_dir_pids
         else:
             pids |= find_pids_in_directory(watch_dir, watch_exe)
+    if watch_title:
+        pids |= find_pids_by_window_substring(watch_title)
     return pids
 
 
-def game_process_alive(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids=None):
-    pids = active_game_pids(root_pid, watch_exe, watch_dir, cached_dir_pids)
+def game_process_alive(root_pid, watch_exe=None, watch_dir=None, cached_dir_pids=None, watch_title=None):
+    pids = active_game_pids(root_pid, watch_exe, watch_dir, cached_dir_pids, watch_title)
     return bool(alive_pids(pids))
 
 
-def wait_for_game_exe_exit(watch_exe, root_pid=None, watch_dir=None, grace=GAME_WATCH_GRACE, pump=None):
+def wait_for_game_exe_exit(
+    watch_exe,
+    root_pid=None,
+    watch_dir=None,
+    grace=GAME_WATCH_GRACE,
+    pump=None,
+    watch_title=None,
+):
     """Wait until no matching game process runs (survives Epic launcher restart).
 
     Returns True if pump reported user cancel (B / Escape).
     """
-    if not watch_exe and not watch_dir:
+    if not watch_exe and not watch_dir and not watch_title:
         return False
     last_seen = time.time()
     last_activity = last_seen
     restart_logged = False
     cached_dir_pids = set()
     last_dir_scan = 0.0
-    label = watch_exe or os.path.basename(watch_dir or "game")
+    label = watch_exe or watch_title or os.path.basename(watch_dir or "game")
     while True:
         now = time.time()
         if watch_dir and now - last_dir_scan >= 1.0:
             cached_dir_pids = find_pids_in_directory(watch_dir, watch_exe)
             last_dir_scan = now
         alive = alive_pids(
-            active_game_pids(root_pid, watch_exe, watch_dir, cached_dir_pids)
+            active_game_pids(root_pid, watch_exe, watch_dir, cached_dir_pids, watch_title)
         )
         if alive:
             last_seen = now
